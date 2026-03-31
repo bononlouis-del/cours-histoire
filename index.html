@@ -3,214 +3,255 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carte de l'Inclusion Numérique - Bordeaux Métropole</title>
+    <title>Inclusion Numérique | Bordeaux Métropole</title>
     
+    <!-- Google Fonts: Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Fuse.js pour la recherche (optionnel, on peut le faire en JS natif) -->
     
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        :root {
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.5);
+            --bg-glass: rgba(255, 255, 255, 0.8);
+            --text-dark: #1e293b;
+            --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        }
+
+        body, html { 
+            margin: 0; padding: 0; height: 100%; 
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #f8fafc;
+            color: var(--text-dark);
+        }
+
         #map { height: 100vh; width: 100%; z-index: 1; }
 
-        /* Styles pour les contrôles au-dessus de la carte */
-        .controls {
+        /* Navigation / Overlay */
+        .glass-panel {
             position: absolute;
             top: 20px;
             right: 20px;
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            width: 300px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: var(--shadow);
+            width: 320px;
+            transition: transform 0.3s ease;
         }
 
-        .controls h2 { margin: 0 0 10px 0; font-size: 1.2em; color: #2c3e50; }
-        .controls input, .controls select {
+        .glass-panel:hover { transform: translateY(-5px); }
+
+        h1 { 
+            margin: 0 0 4px 0; font-size: 1.4em; font-weight: 800;
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle { font-size: 0.85em; color: #64748b; margin-bottom: 20px; }
+
+        /* Search & Inputs */
+        .search-box { position: relative; margin-bottom: 12px; }
+        input, select {
             width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
+            padding: 12px 16px;
+            border: 1px solid rgba(0,0,0,0.05);
+            border-radius: 12px;
+            background: white;
+            font-family: inherit;
+            font-size: 0.9em;
+            outline: none;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
 
-        .legend {
-            font-size: 0.85em;
-            line-height: 1.5;
+        input:focus, select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px var(--primary-glow);
         }
-        .legend-item { display: flex; align-items: center; margin-bottom: 5px; }
-        .dot { height: 12px; width: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; border: 1px solid #fff; }
 
-        /* Styles Popup */
-        .leaflet-popup-content-wrapper { border-radius: 8px; }
-        .popup-title { font-weight: bold; color: #2c3e50; font-size: 1.1em; margin-bottom: 5px; }
-        .popup-info { font-size: 0.9em; line-height: 1.4; color: #34495e; }
-        .popup-tag { display: inline-block; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; margin-bottom: 5px; font-weight: bold; }
-        
-        /* Couleurs par types */
-        .tag-association { background: #3498db; }
-        .tag-biblio { background: #e74c3c; }
-        .tag-commune { background: #2ecc71; }
-        .tag-social { background: #f1c40f; }
-        .tag-tierslieu { background: #9b59b6; }
-        .tag-poleemploi { background: #e67e22; }
-        .tag-autre { background: #95a5a6; }
+        /* Legend Style */
+        .legend { margin-top: 20px; display: grid; grid-template-columns: 1fr; gap: 8px; }
+        .legend-item { 
+            display: flex; align-items: center; font-size: 0.8em; font-weight: 600;
+            padding: 6px 12px; border-radius: 8px; background: rgba(0,0,0,0.03);
+            transition: background 0.2s;
+        }
+        .legend-item:hover { background: rgba(0,0,0,0.06); }
+        .dot { height: 10px; width: 10px; border-radius: 50%; margin-right: 10px; }
 
-        hr { border: 0; border-top: 1px solid #eee; margin: 10px 0; }
+        /* Custom Popup Slay */
+        .leaflet-popup-content-wrapper { 
+            border-radius: 16px; padding: 5px; 
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+        }
+        .popup-card { padding: 10px; }
+        .popup-tag {
+            display: inline-block; padding: 4px 10px; border-radius: 20px;
+            font-size: 0.7em; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-bottom: 8px; color: white;
+        }
+        .popup-title { font-weight: 800; font-size: 1.1em; margin-bottom: 4px; line-height: 1.2; }
+        .popup-addr { font-size: 0.85em; color: #64748b; margin-bottom: 12px; }
+        .popup-btn {
+            display: block; text-align: center; background: var(--primary);
+            color: white; text-decoration: none; padding: 8px; border-radius: 10px;
+            font-weight: 700; font-size: 0.85em; transition: opacity 0.2s;
+        }
+        .popup-btn:hover { opacity: 0.9; }
+
+        /* Animations */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
 
-    <div class="controls">
-        <h2>Filtres & Recherche</h2>
-        <input type="text" id="searchInput" placeholder="Rechercher un lieu ou service...">
+    <div class="glass-panel">
+        <h1>Inclusion.</h1>
+        <div class="subtitle">Bordeaux Métropole Interactive Map</div>
+        
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Rechercher un lieu, un service...">
+        </div>
+        
         <select id="typeFilter">
-            <option value="all">Tous les types de lieux</option>
-            <option value="Association">Association</option>
-            <option value="Bibliothèque / Médiathèque">Bibliothèque / Médiathèque</option>
-            <option value="Commune">Commune / CCAS</option>
-            <option value="Centre social">Centre social</option>
-            <option value="Tiers-lieu">Tiers-lieu / FabLab</option>
-            <option value="Pôle Emploi">Pôle Emploi</option>
+            <option value="all">Tous les établissements</option>
+            <option value="Association">Associations</option>
+            <option value="Bibliothèque">Bibliothèques</option>
+            <option value="Commune">Services Municipaux</option>
+            <option value="Centre social">Centres Sociaux</option>
+            <option value="Tiers-lieu">Tiers-lieux / FabLabs</option>
         </select>
         
-        <div class="legend">
-            <div class="legend-item"><span class="dot" style="background: #3498db;"></span> Association</div>
-            <div class="legend-item"><span class="dot" style="background: #e74c3c;"></span> Bibliothèque / Médiathèque</div>
-            <div class="legend-item"><span class="dot" style="background: #2ecc71;"></span> Commune / CCAS</div>
-            <div class="legend-item"><span class="dot" style="background: #f1c40f;"></span> Centre social</div>
-            <div class="legend-item"><span class="dot" style="background: #9b59b6;"></span> Tiers-lieu / FabLab</div>
-            <div class="legend-item"><span class="dot" style="background: #e67e22;"></span> Pôle Emploi</div>
+        <div class="legend" id="legendItems">
+            <!-- Dynamically populated -->
         </div>
     </div>
 
-    <!-- Leaflet JS -->
+    <!-- Leaflet & PapaParse -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- PapaParse -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
     <script>
-        // Initialisation de la carte
-        const map = L.map('map').setView([44.837789, -0.57918], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
+        // Slay Colors
+        const colors = {
+            'Association': '#6366f1', // Indigo
+            'Bibliothèque': '#f43f5e', // Rose
+            'Commune': '#10b981',      // Emerald
+            'Centre social': '#f59e0b',// Amber
+            'Tiers-lieu': '#8b5cf6',   // Violet
+            'Default': '#94a3b8'       // Slate
+        };
+
+        const map = L.map('map', { zoomControl: false }).setView([44.837789, -0.57918], 13);
+        
+        // CartoDB Voyager Tile Layer - much cleaner/graphic
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         }).addTo(map);
+
+        // Move zoom control to bottom right
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
 
         let allMarkers = [];
         const markersGroup = L.layerGroup().addTo(map);
 
-        // Définition des icônes de couleur
-        function createIcon(color) {
-            return new L.Icon({
-                iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
-                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                iconSize: [25, 41],
-                iconAnchor: [12, 41],
-                popupAnchor: [1, -34],
-                shadowSize: [41, 41]
-            });
+        function getStyle(type) {
+            if (type.includes('Association')) return { color: colors['Association'], label: 'Association' };
+            if (type.includes('Bibliothèque')) return { color: colors['Bibliothèque'], label: 'Bibliothèque' };
+            if (type.includes('Commune') || type.includes('CCAS')) return { color: colors['Commune'], label: 'Municipal' };
+            if (type.includes('Centre social')) return { color: colors['Centre social'], label: 'Centre Social' };
+            if (type.includes('Tiers-lieu')) return { color: colors['Tiers-lieu'], label: 'Tiers-Lieu' };
+            return { color: colors['Default'], label: 'Autre' };
         }
 
-        const icons = {
-            'Association': { color: 'blue', tagClass: 'tag-association' },
-            'Bibliothèque / Médiathèque': { color: 'red', tagClass: 'tag-biblio' },
-            'Commune (Ville, CCAS, Centre Culturel…)': { color: 'green', tagClass: 'tag-commune' },
-            'Centre social': { color: 'yellow', tagClass: 'tag-social' },
-            'Tiers-lieu / Coworking / FabLab / Hackerspace': { color: 'violet', tagClass: 'tag-tierslieu' },
-            'Pôle Emploi': { color: 'orange', tagClass: 'tag-poleemploi' },
-            'Default': { color: 'grey', tagClass: 'tag-autre' }
-        };
+        // Render Legend
+        const legendContainer = document.getElementById('legendItems');
+        Object.entries(colors).forEach(([key, color]) => {
+            if (key === 'Default') return;
+            const item = document.createElement('div');
+            item.className = 'legend-item';
+            item.innerHTML = `<span class="dot" style="background: ${color}"></span> ${key}`;
+            legendContainer.appendChild(item);
+        });
 
-        function getCategoryInfo(type) {
-            if (type.includes('Association')) return icons['Association'];
-            if (type.includes('Bibliothèque')) return icons['Bibliothèque / Médiathèque'];
-            if (type.includes('Commune') || type.includes('CCAS')) return icons['Commune (Ville, CCAS, Centre Culturel…)'];
-            if (type.includes('Centre social')) return icons['Centre social'];
-            if (type.includes('Tiers-lieu')) return icons['Tiers-lieu / Coworking / FabLab / Hackerspace'];
-            if (type.includes('Pôle Emploi')) return icons['Pôle Emploi'];
-            return icons['Default'];
-        }
-
-        // Chargement du CSV
         fetch('met_lieux_inclusion_numerique.csv')
-            .then(response => response.text())
-            .then(csvString => {
-                Papa.parse(csvString, {
-                    header: true,
-                    delimiter: ";",
-                    skipEmptyLines: true,
+            .then(res => res.text())
+            .then(csv => {
+                Papa.parse(csv, {
+                    header: true, delimiter: ";", skipEmptyLines: true,
                     complete: function(results) {
                         results.data.forEach(row => {
                             const lat = parseFloat(row.latitude);
                             const lng = parseFloat(row.longitude);
+                            if (isNaN(lat) || isNaN(lng)) return;
 
-                            if (!isNaN(lat) && !isNaN(lng)) {
-                                const catInfo = getCategoryInfo(row.type_lieu || '');
-                                
-                                const popupHTML = `
-                                    <div class="popup-info">
-                                        <div class="popup-tag ${catInfo.tagClass}">${row.type_lieu || 'Lieu'}</div>
-                                        <div class="popup-title">${row.nom}</div>
-                                        <strong>Adresse :</strong> ${row.adresse_brut || 'Non renseignée'}<br>
-                                        <strong>Public :</strong> ${row.public_cible || 'Tout public'}<br>
-                                        <hr>
-                                        <p>${row.description ? row.description.substring(0, 150) + '...' : 'Pas de description.'}</p>
-                                        ${row.contact_telephone ? '📞 ' + row.contact_telephone : ''}
-                                        ${row.contact_web ? `<br>🌐 <a href="${row.contact_web}" target="_blank">Site web</a>` : ''}
-                                    </div>
-                                `;
+                            const style = getStyle(row.type_lieu || '');
+                            
+                            // Custom Slay Circle Marker
+                            const marker = L.circleMarker([lat, lng], {
+                                radius: 8,
+                                fillColor: style.color,
+                                color: 'white',
+                                weight: 2,
+                                opacity: 1,
+                                fillOpacity: 0.9
+                            });
 
-                                const marker = L.marker([lat, lng], { icon: createIcon(catInfo.color) })
-                                    .bindPopup(popupHTML);
-                                
-                                // On stocke les infos pour filtrer
-                                allMarkers.push({
-                                    marker: marker,
-                                    name: row.nom.toLowerCase(),
-                                    type: row.type_lieu || '',
-                                    services: (row.services || '').toLowerCase(),
-                                    description: (row.description || '').toLowerCase()
-                                });
+                            const popupHTML = `
+                                <div class="popup-card">
+                                    <div class="popup-tag" style="background: ${style.color}">${style.label}</div>
+                                    <div class="popup-title">${row.nom}</div>
+                                    <div class="popup-addr">${row.adresse_brut || ''}</div>
+                                    ${row.contact_web ? `<a href="${row.contact_web}" target="_blank" class="popup-btn">Visiter le site</a>` : ''}
+                                </div>
+                            `;
 
-                                marker.addTo(markersGroup);
-                            }
+                            marker.bindPopup(popupHTML);
+                            
+                            allMarkers.push({
+                                marker,
+                                name: row.nom.toLowerCase(),
+                                type: row.type_lieu || '',
+                                services: (row.services || '').toLowerCase()
+                            });
+
+                            marker.addTo(markersGroup);
                         });
                     }
                 });
             });
 
-        // Logique de filtrage et recherche
-        function filterMarkers() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const typeValue = document.getElementById('typeFilter').value;
-
+        function filter() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const type = document.getElementById('typeFilter').value;
             markersGroup.clearLayers();
 
             allMarkers.forEach(item => {
-                const matchesSearch = item.name.includes(searchTerm) || 
-                                     item.services.includes(searchTerm) || 
-                                     item.description.includes(searchTerm);
-                
-                let matchesType = (typeValue === 'all');
-                if (typeValue === 'Association') matchesType = item.type.includes('Association');
-                if (typeValue === 'Bibliothèque / Médiathèque') matchesType = item.type.includes('Bibliothèque');
-                if (typeValue === 'Commune') matchesType = item.type.includes('Commune') || item.type.includes('CCAS');
-                if (typeValue === 'Centre social') matchesType = item.type.includes('Centre social');
-                if (typeValue === 'Tiers-lieu') matchesType = item.type.includes('Tiers-lieu');
-                if (typeValue === 'Pôle Emploi') matchesType = item.type.includes('Pôle Emploi');
-
-                if (matchesSearch && matchesType) {
-                    markersGroup.addLayer(item.marker);
-                }
+                const matchSearch = item.name.includes(search) || item.services.includes(search);
+                const matchType = type === 'all' || item.type.includes(type);
+                if (matchSearch && matchType) markersGroup.addLayer(item.marker);
             });
         }
 
-        document.getElementById('searchInput').addEventListener('input', filterMarkers);
-        document.getElementById('typeFilter').addEventListener('change', filterMarkers);
+        document.getElementById('searchInput').addEventListener('input', filter);
+        document.getElementById('typeFilter').addEventListener('change', filter);
 
     </script>
 </body>
