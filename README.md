@@ -24,6 +24,9 @@ Le fichier `index.html` contient la logique d'affichage. Vous pouvez modifier :
 3.  Sélectionnez la branche `main` et le dossier `/(root)`.
 4.  Cliquez sur **Save**. Votre carte sera en ligne en quelques secondes !
 
+## 📊 Analyses et Résultats
+*   [Consulter l'analyse des services](ANALYSE_SERVICES.md) : Une synthèse des types de lieux et des services proposés sur le territoire.
+
 ## 🛠️ Outils utilisés
 *   [Leaflet.js](https://leafletjs.com/) : Bibliothèque JavaScript pour les cartes interactives.
 *   [PapaParse](https://www.papaparse.com/) : Analyseur CSV puissant pour JavaScript.
