@@ -65,13 +65,14 @@
         }).addTo(map);
 
         // Styles pour les couches
-        const icpeStyle = {
-            radius: 5,
-            fillColor: "#ff7800",
-            color: "#000",
-            weight: 1,
-            opacity: 1,
-            fillOpacity: 0.8
+        const regimeColors = {
+            'A': '#f59e0b', // Autorisation
+            'E': '#3b82f6', // Enregistrement
+            'D': '#10b981', // Déclaration
+            'S': '#6366f1', // Servitude
+            'SEVESO_BAS': '#b91c1c', // Rouge
+            'SEVESO_HAUT': '#450a0a', // Marron foncé
+            'Inconnu': '#6b7280'
         };
 
         const rnnStyle = {
@@ -92,19 +93,65 @@
 
         // Groupes de couches
         const icpeLayer = L.layerGroup();
+        const sevesoBasLayer = L.layerGroup();
+        const sevesoHautLayer = L.layerGroup();
         const rnnLayer = L.layerGroup();
         const ensLayer = L.layerGroup();
 
-        // Fonction pour charger et ajouter le GeoJSON
-        async function loadGeoJSON(url, layerGroup, style, popupFunc) {
+        // Fonction pour charger les ICPE avec distinction Seveso
+        async function loadICPE(url) {
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                L.geoJSON(data, {
+                    pointToLayer: (feature, latlng) => {
+                        const props = feature.properties;
+                        const isHaut = props.cat_seveso === 'SEUIL_HAUT';
+                        const isBas = props.cat_seveso === 'SEUIL_BAS';
+                        
+                        let style = {
+                            radius: isHaut ? 9 : (isBas ? 7 : 4),
+                            fillColor: isHaut ? regimeColors.SEVESO_HAUT : (isBas ? regimeColors.SEVESO_BAS : (regimeColors[props.regime?.charAt(0)] || regimeColors.Inconnu)),
+                            color: (isHaut || isBas) ? "black" : "white",
+                            weight: (isHaut || isBas) ? 2 : 1,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        };
+                        
+                        const marker = L.circleMarker(latlng, style);
+                        
+                        // Ajout au bon groupe de couche
+                        if (isHaut) marker.addTo(sevesoHautLayer);
+                        else if (isBas) marker.addTo(sevesoBasLayer);
+                        else marker.addTo(icpeLayer);
+                        
+                        return marker;
+                    },
+                    onEachFeature: (feature, layer) => {
+                        const p = feature.properties;
+                        const isSeveso = p.cat_seveso && p.cat_seveso !== 'NON_SEVESO';
+                        const label = isSeveso ? `⚠️ SEVESO ${p.cat_seveso.replace('_', ' ')}` : `Régime: ${p.regime}`;
+                        
+                        layer.bindPopup(`
+                            <strong>${p.libelle || p.nom || 'ICPE'}</strong><br>
+                            <em style="color: #666;">${label}</em><br>
+                            <a href="${p.fiche}" target="_blank">Fiche Géorisques</a>
+                        `);
+                    }
+                });
+            } catch (error) {
+                console.error("Erreur ICPE:", error);
+            }
+        }
+
+        // Fonction générique pour les polygones (RNN, ENS)
+        async function loadPolygons(url, layerGroup, style, popupFunc) {
             try {
                 const response = await fetch(url);
                 const data = await response.json();
                 L.geoJSON(data, {
                     style: style,
-                    pointToLayer: (feature, latlng) => {
-                        return L.circleMarker(latlng, icpeStyle);
-                    },
                     onEachFeature: (feature, layer) => {
                         if (popupFunc) {
                             layer.bindPopup(popupFunc(feature.properties));
@@ -112,17 +159,11 @@
                     }
                 }).addTo(layerGroup);
             } catch (error) {
-                console.error(`Erreur lors du chargement de ${url}:`, error);
+                console.error(`Erreur ${url}:`, error);
             }
         }
 
-        // Définition des Popups
-        const icpePopup = (props) => `
-            <strong>${props.libelle || props.nom || 'ICPE'}</strong><br>
-            Régime : ${props.regime || 'Inconnu'}<br>
-            <a href="${props.fiche}" target="_blank">Fiche Géorisques</a>
-        `;
-
+        // Définition des Popups pour polygones
         const rnnPopup = (props) => `
             <strong>Réserve Naturelle Nationale</strong><br>
             Nom : ${props.nom_site || props.NOM || 'Inconnu'}<br>
@@ -132,23 +173,26 @@
         const ensPopup = (props) => `
             <strong>Espace Naturel Sensible</strong><br>
             Nom : ${props.ens_libelle || props.nom || 'Site départemental'}<br>
-            Type : ${props.ens_type || 'Inconnu'}<br>
-            Statut : ${props.ens_statut || 'Protégé'}
+            Type : ${props.ens_type || 'Inconnu'}
         `;
 
         // Chargement des données
-        loadGeoJSON('data/icpe_gironde.geojson', icpeLayer, icpeStyle, icpePopup);
-        loadGeoJSON('data/rnn_gironde.geojson', rnnLayer, rnnStyle, rnnPopup);
-        loadGeoJSON('data/ens_gironde.geojson', ensLayer, ensStyle, ensPopup);
+        loadICPE('data/icpe_gironde.geojson');
+        loadPolygons('data/rnn_gironde.geojson', rnnLayer, rnnStyle, rnnPopup);
+        loadPolygons('data/ens_gironde.geojson', ensLayer, ensStyle, ensPopup);
 
-        // Ajout initial des couches à la carte
+        // Ajout initial des couches
+        sevesoHautLayer.addTo(map);
+        sevesoBasLayer.addTo(map);
         icpeLayer.addTo(map);
         rnnLayer.addTo(map);
         ensLayer.addTo(map);
 
         // Contrôle des couches
         const overlayMaps = {
-            "ICPE (Installations Classées)": icpeLayer,
+            "⚠️ SEVESO Seuil Haut": sevesoHautLayer,
+            "⚠️ SEVESO Seuil Bas": sevesoBasLayer,
+            "ICPE (Autres régimes)": icpeLayer,
             "Réserves Naturelles (RNN)": rnnLayer,
             "Espaces Naturels Sensibles (ENS)": ensLayer
         };
@@ -159,9 +203,12 @@
         const legend = L.control({position: 'bottomright'});
         legend.onAdd = function (map) {
             const div = L.DomUtil.create('div', 'info legend');
-            div.innerHTML += '<i style="background: #ff7800"></i> ICPE<br>';
-            div.innerHTML += '<i style="background: #2ecc71"></i> Réserves Nationales<br>';
-            div.innerHTML += '<i style="background: #3498db"></i> Espaces Sensibles (ENS)<br>';
+            div.innerHTML += '<strong>Légende</strong><br>';
+            div.innerHTML += `<i style="background: ${regimeColors.SEVESO_HAUT}"></i> SEVESO Haut<br>`;
+            div.innerHTML += `<i style="background: ${regimeColors.SEVESO_BAS}"></i> SEVESO Bas<br>`;
+            div.innerHTML += `<i style="background: ${regimeColors.A}"></i> ICPE Autorisation<br>`;
+            div.innerHTML += '<i style="background: #2ecc71"></i> Réserves Naturelles<br>';
+            div.innerHTML += '<i style="background: #3498db"></i> Espaces ENS<br>';
             return div;
         };
         legend.addTo(map);
