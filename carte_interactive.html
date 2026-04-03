@@ -15,6 +15,43 @@
         }
         #map { height: 100vh; width: 100vw; }
         
+        /* Style pour la barre de recherche */
+        .search-box {
+            position: absolute;
+            top: 20px;
+            left: 70px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        #rnnInput {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 220px;
+            outline: none;
+        }
+        #rnnInput:focus { border-color: #16a34a; }
+        .search-results {
+            background: white;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            border: 1px solid #eee;
+        }
+        .search-results div {
+            padding: 8px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .search-results div:hover { background: #f0fdf4; color: #16a34a; }
+
         .legend {
             background: white;
             padding: 15px;
@@ -34,6 +71,11 @@
     </style>
 </head>
 <body>
+
+    <div class="search-box">
+        <input type="text" id="rnnInput" placeholder="Rechercher une réserve (RNN)..." autocomplete="off">
+        <div id="results" class="search-results"></div>
+    </div>
 
     <div id="map"></div>
 
@@ -88,18 +130,68 @@
             } catch (e) { console.error(e); }
         }
 
+        let rnnFeatures = [];
+
         async function loadRNN(url) {
             try {
                 const response = await fetch(url);
                 const data = await response.json();
+                rnnFeatures = data.features;
                 L.geoJSON(data, {
-                    pointToLayer: (f, latlng) => L.circleMarker(latlng, {
-                        radius: 8, fillColor: '#16a34a', color: 'white', weight: 2, opacity: 1, fillOpacity: 0.9
-                    }),
+                    pointToLayer: (f, latlng) => {
+                        const marker = L.circleMarker(latlng, {
+                            radius: 8, fillColor: '#16a34a', color: 'white', weight: 2, opacity: 1, fillOpacity: 0.9
+                        });
+                        f.marker = marker; // Stocker le marqueur pour y accéder plus tard
+                        return marker;
+                    },
                     onEachFeature: (f, l) => l.bindPopup(`<strong>${f.properties.nom_site}</strong><br><a href="${f.properties.url_fiche}" target="_blank">Fiche RNN →</a>`)
                 }).addTo(rnnLayer);
             } catch (e) { console.error(e); }
         }
+
+        // Logique de recherche
+        const searchInput = document.getElementById('rnnInput');
+        const resultsDiv = document.getElementById('results');
+
+        searchInput.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase().trim();
+            resultsDiv.innerHTML = '';
+            
+            if (term.length < 2) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            const matches = rnnFeatures.filter(f => 
+                f.properties.nom_site.toLowerCase().includes(term)
+            );
+
+            if (matches.length > 0) {
+                resultsDiv.style.display = 'block';
+                matches.forEach(m => {
+                    const div = document.createElement('div');
+                    div.textContent = m.properties.nom_site;
+                    div.onclick = () => {
+                        const coords = m.geometry.coordinates;
+                        map.setView([coords[1], coords[0]], 13);
+                        m.marker.openPopup();
+                        resultsDiv.style.display = 'none';
+                        searchInput.value = m.properties.nom_site;
+                    };
+                    resultsDiv.appendChild(div);
+                });
+            } else {
+                resultsDiv.style.display = 'none';
+            }
+        });
+
+        // Fermer les résultats si on clique ailleurs
+        document.addEventListener('click', (e) => {
+            if (!document.querySelector('.search-box').contains(e.target)) {
+                resultsDiv.style.display = 'none';
+            }
+        });
 
         async function loadENS(url) {
             try {
