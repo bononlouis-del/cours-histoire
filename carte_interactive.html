@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carte Interactive - ICPE & Réserves Naturelles Gironde</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body, html { 
+            margin: 0; padding: 0; height: 100%; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #map { height: 100vh; width: 100vw; }
+        
+        .legend {
+            background: white;
+            padding: 15px;
+            line-height: 24px;
+            color: #333;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
+        .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.7;
+            border-radius: 4px;
+        }
+        
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            max-width: 300px;
+            display: none;
+        }
+        .info-panel h3 { margin-top: 0; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+    <div id="infoPanel" class="info-panel"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // Initialisation de la carte centrée sur la Gironde
+        const map = L.map('map').setView([44.837789, -0.57918], 9);
+
+        // Fond de carte minimaliste
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+        }).addTo(map);
+
+        // Styles pour les couches
+        const icpeStyle = {
+            radius: 5,
+            fillColor: "#ff7800",
+            color: "#000",
+            weight: 1,
+            opacity: 1,
+            fillOpacity: 0.8
+        };
+
+        const rnnStyle = {
+            color: "#27ae60",
+            weight: 2,
+            opacity: 0.8,
+            fillColor: "#2ecc71",
+            fillOpacity: 0.4
+        };
+
+        const ensStyle = {
+            color: "#2980b9",
+            weight: 1,
+            opacity: 0.6,
+            fillColor: "#3498db",
+            fillOpacity: 0.2
+        };
+
+        // Groupes de couches
+        const icpeLayer = L.layerGroup();
+        const rnnLayer = L.layerGroup();
+        const ensLayer = L.layerGroup();
+
+        // Fonction pour charger et ajouter le GeoJSON
+        async function loadGeoJSON(url, layerGroup, style, popupFunc) {
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                L.geoJSON(data, {
+                    style: style,
+                    pointToLayer: (feature, latlng) => {
+                        return L.circleMarker(latlng, icpeStyle);
+                    },
+                    onEachFeature: (feature, layer) => {
+                        if (popupFunc) {
+                            layer.bindPopup(popupFunc(feature.properties));
+                        }
+                    }
+                }).addTo(layerGroup);
+            } catch (error) {
+                console.error(`Erreur lors du chargement de ${url}:`, error);
+            }
+        }
+
+        // Définition des Popups
+        const icpePopup = (props) => `
+            <strong>${props.libelle || props.nom || 'ICPE'}</strong><br>
+            Régime : ${props.regime || 'Inconnu'}<br>
+            <a href="${props.fiche}" target="_blank">Fiche Géorisques</a>
+        `;
+
+        const rnnPopup = (props) => `
+            <strong>Réserve Naturelle Nationale</strong><br>
+            Nom : ${props.nom_site || props.NOM || 'Inconnu'}<br>
+            <a href="${props.url_fiche}" target="_blank">Fiche INPN</a>
+        `;
+
+        const ensPopup = (props) => `
+            <strong>Espace Naturel Sensible</strong><br>
+            Nom : ${props.ens_libelle || props.nom || 'Site départemental'}<br>
+            Type : ${props.ens_type || 'Inconnu'}<br>
+            Statut : ${props.ens_statut || 'Protégé'}
+        `;
+
+        // Chargement des données
+        loadGeoJSON('data/icpe_gironde.geojson', icpeLayer, icpeStyle, icpePopup);
+        loadGeoJSON('data/rnn_gironde.geojson', rnnLayer, rnnStyle, rnnPopup);
+        loadGeoJSON('data/ens_gironde.geojson', ensLayer, ensStyle, ensPopup);
+
+        // Ajout initial des couches à la carte
+        icpeLayer.addTo(map);
+        rnnLayer.addTo(map);
+        ensLayer.addTo(map);
+
+        // Contrôle des couches
+        const overlayMaps = {
+            "ICPE (Installations Classées)": icpeLayer,
+            "Réserves Naturelles (RNN)": rnnLayer,
+            "Espaces Naturels Sensibles (ENS)": ensLayer
+        };
+
+        L.control.layers(null, overlayMaps, { collapsed: false }).addTo(map);
+
+        // Légende
+        const legend = L.control({position: 'bottomright'});
+        legend.onAdd = function (map) {
+            const div = L.DomUtil.create('div', 'info legend');
+            div.innerHTML += '<i style="background: #ff7800"></i> ICPE<br>';
+            div.innerHTML += '<i style="background: #2ecc71"></i> Réserves Nationales<br>';
+            div.innerHTML += '<i style="background: #3498db"></i> Espaces Sensibles (ENS)<br>';
+            return div;
+        };
+        legend.addTo(map);
+
+    </script>
+</body>
+</html>

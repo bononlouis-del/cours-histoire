@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyse ICPE & Réserves Naturelles - Gironde</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        :root {
+            --pastel-green: #bbf7d0;
+            --pastel-red: #fecaca;
+            --pastel-orange: #fed7aa;
+            --pastel-yellow: #fef08a;
+            --apple-bg: #fcfcfd;
+            --apple-glass: rgba(255, 255, 255, 0.9);
+            --apple-text: #1d1d1f;
+            --apple-sub: #86868b;
+            --spring: cubic-bezier(0.4, 0, 0.2, 1);
+            --soft-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
+        }
+
+        body, html { 
+            margin: 0; padding: 0; height: 100%; 
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+            background: var(--apple-bg);
+            color: var(--apple-text);
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Sidebar: RNN List */
+        .sidebar {
+            width: 380px;
+            background: white;
+            border-right: 1px solid #f2f2f2;
+            display: flex;
+            flex-direction: column;
+            z-index: 2000;
+        }
+
+        .header {
+            padding: 30px 25px 15px 25px;
+        }
+
+        h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+        .subtitle { color: var(--apple-sub); font-size: 13px; margin-top: 4px; font-weight: 500; }
+
+        /* Search Bar */
+        .search-container { padding: 0 25px 20px 25px; }
+        .search-bar {
+            background: #f2f2f7;
+            border: 2px solid transparent;
+            padding: 10px 15px;
+            border-radius: 12px;
+            width: 100%;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s;
+            box-sizing: border-box;
+        }
+        .search-bar:focus { 
+            background: white;
+            border-color: #e5e5e7;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+
+        .location-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 15px;
+        }
+
+        .rnn-item {
+            padding: 18px;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s var(--spring);
+            margin-bottom: 8px;
+            border: 1px solid transparent;
+        }
+        .rnn-item:hover { background: #f8f8f8; }
+        .rnn-item.active { 
+            background: white; 
+            border-color: #e5e5e5;
+            box-shadow: var(--soft-shadow);
+        }
+
+        .rnn-name { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
+        .rnn-info { font-size: 11px; color: var(--apple-sub); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* Map */
+        .map-wrapper { flex: 1; position: relative; }
+        #map { height: 100%; width: 100%; }
+
+        /* Detail Panel */
+        .detail-panel {
+            position: absolute;
+            top: 20px; right: 20px; bottom: 20px;
+            width: 400px;
+            background: var(--apple-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 25px;
+            z-index: 3000;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            transform: translateX(450px);
+            transition: transform 0.6s var(--spring);
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .detail-panel.open { transform: translateX(0); }
+
+        .close-btn {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(0,0,0,0.05); border: none; border-radius: 50%;
+            width: 30px; height: 30px; cursor: pointer;
+        }
+
+        .proximity-list {
+            margin-top: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+        .icpe-proximity-item {
+            padding: 12px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.03);
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        .icpe-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        
+        .radius-selector {
+            margin: 15px 0;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .sep-header {
+            padding: 15px 18px 5px 18px;
+            font-size: 11px;
+            font-weight: 800;
+            color: var(--apple-sub);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        /* Legend */
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 11px;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            max-width: 220px;
+        }
+        .legend-item { display: flex; align-items: center; margin-bottom: 5px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="header">
+                <h1>Risques & Réserves</h1>
+                <div class="subtitle">Analyse spatiale ICPE • Gironde</div>
+                <div class="radius-selector">
+                    Rayon d'analyse : <span id="radiusVal">5</span> km
+                    <input type="range" id="radiusInput" min="1" max="20" value="5" style="width: 100%; margin-top: 8px;">
+                </div>
+            </div>
+            
+            <div class="search-container">
+                <input type="text" class="search-bar" id="searchInput" placeholder="Rechercher une réserve ou un ENS...">
+            </div>
+
+            <div class="location-list" id="rnnList">
+                <!-- Dynamically Populated -->
+            </div>
+        </aside>
+
+        <main class="map-wrapper">
+            <div id="map"></div>
+            
+            <div class="legend">
+                <strong>Légende</strong>
+                <div class="legend-item"><div class="dot" style="background: #450a0a; border: 1px solid black; width: 12px; height: 12px;"></div> SEVESO Seuil Haut</div>
+                <div class="legend-item"><div class="dot" style="background: #b91c1c; border: 1px solid black; width: 12px; height: 12px;"></div> SEVESO Seuil Bas</div>
+                <div class="legend-item"><div class="dot" style="background: #ef4444"></div> ICPE Standard</div>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 8px 0;">
+                <div class="legend-item"><div style="width:12px; height:12px; background:#22c55e; opacity:0.3; border:2px solid #16a34a; margin-right:8px;"></div> Réserve (RNN)</div>
+                <div class="legend-item"><div style="width:12px; height:12px; background:#3498db; opacity:0.3; border:2px solid #2980b9; margin-right:8px;"></div> Espace Sensible (ENS)</div>
+            </div>
+
+            <div id="detailPanel" class="detail-panel">
+                <button class="close-btn" onclick="closeDetail()">&times;</button>
+                <div id="detailContent">
+                    <!-- Dynamic -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+
+    <script>
+        const map = L.map('map', { zoomControl: false }).setView([44.837789, -0.57918], 9);
+        
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+        }).addTo(map);
+
+        const regimeColors = {
+            'A': '#ef4444', // Autorisation
+            'E': '#f97316', // Enregistrement
+            'D': '#eab308', // Déclaration
+            'Inconnu': '#94a3b8',
+            'SEVESO_BAS': '#b91c1c', // Red
+            'SEVESO_HAUT': '#450a0a'  // Dark Maroon
+        };
+
+        const descriptions = {
+            'ICPE': "Installation Classée pour la Protection de l'Environnement. Activité industrielle ou agricole présentant un risque pour l'environnement ou la santé.",
+            'SEVESO_BAS': "Établissement Seveso Seuil Bas : risque d'accident majeur nécessitant une surveillance et une prévention renforcée.",
+            'SEVESO_HAUT': "Établissement Seveso Seuil Haut : risques industriels les plus importants, soumis à des contrôles drastiques et des plans d'urgence spécifiques.",
+            'RNN': "Réserve Naturelle Nationale : périmètre de protection de haut niveau pour des espèces, habitats ou sites géologiques remarquables.",
+            'ENS': "Espace Naturel Sensible : site protégé par le Département pour la préservation de la biodiversité et des paysages girondins."
+        };
+
+        async function init() {
+            try {
+                const [resRNN, resICPE, resENS] = await Promise.all([
+                    fetch('data/rnn_gironde.geojson'),
+                    fetch('data/icpe_gironde.geojson'),
+                    fetch('data/ens_gironde.geojson')
+                ]);
+                dataRNN = await resRNN.json();
+                dataICPE = await resICPE.json();
+                dataENS = await resENS.json();
+
+                renderLocationList();
+                renderMapLayers();
+            } catch (e) {
+                console.error("Erreur de chargement", e);
+            }
+        }
+
+        function renderLocationList(query = '') {
+            const list = document.getElementById('rnnList');
+            list.innerHTML = '';
+            const q = query.toLowerCase().trim();
+            
+            // 1. Filter RNN
+            const filteredRNN = dataRNN.features.filter(f => 
+                (f.properties.nom_site || f.properties.NOM || '').toLowerCase().includes(q)
+            );
+
+            if (filteredRNN.length > 0) {
+                const rnnTitle = document.createElement('div');
+                rnnTitle.className = 'sep-header';
+                rnnTitle.innerText = 'RÉSERVES NATURELLES (RNN) - GIRONDE';
+                list.appendChild(rnnTitle);
+
+                filteredRNN.forEach(feature => {
+                    const props = feature.properties;
+                    const item = document.createElement('div');
+                    item.className = 'rnn-item';
+                    item.innerHTML = `
+                        <div class="rnn-name">${props.nom_site || props.NOM}</div>
+                        <div class="rnn-info">RNN • Code: ${props.id_mnhn}</div>
+                    `;
+                    item.onclick = () => selectArea(feature, item, 'RNN');
+                    list.appendChild(item);
+                });
+            }
+
+            // 2. Filter ENS
+            const filteredENS = dataENS.features.filter(f => 
+                (f.properties.ens_libelle || '').toLowerCase().includes(q)
+            );
+
+            if (filteredENS.length > 0) {
+                const ensTitle = document.createElement('div');
+                ensTitle.className = 'sep-header';
+                ensTitle.innerText = 'ESPACES NATURELS SENSIBLES - GIRONDE';
+                list.appendChild(ensTitle);
+
+                filteredENS.forEach(feature => {
+                    const props = feature.properties;
+                    const item = document.createElement('div');
+                    item.className = 'rnn-item';
+                    item.innerHTML = `
+                        <div class="rnn-name">${props.ens_libelle || 'Site ENS'}</div>
+                        <div class="rnn-info">ENS • Gironde</div>
+                    `;
+                    item.onclick = () => selectArea(feature, item, 'ENS');
+                    list.appendChild(item);
+                });
+            }
+
+            // 3. Filter ICPE (only if query is long enough)
+            if (q.length >= 2) {
+                const filteredICPE = dataICPE.features.filter(f => 
+                    (f.properties.libelle || f.properties.nom || '').toLowerCase().includes(q)
+                ).slice(0, 50); // Limit results for performance
+
+                if (filteredICPE.length > 0) {
+                    const icpeTitle = document.createElement('div');
+                    icpeTitle.className = 'sep-header';
+                    icpeTitle.innerText = `ÉTABLISSEMENTS INDUSTRIELS (${filteredICPE.length})`;
+                    list.appendChild(icpeTitle);
+
+                    filteredICPE.forEach(feature => {
+                        const props = feature.properties;
+                        const isHaut = props.cat_seveso === 'SEUIL_HAUT';
+                        const isBas = props.cat_seveso === 'SEUIL_BAS';
+                        const label = isHaut ? '⚠️ SEVESO HAUT' : (isBas ? '⚠️ SEVESO BAS' : 'ICPE');
+                        const color = isHaut ? regimeColors.SEVESO_HAUT : (isBas ? regimeColors.SEVESO_BAS : '#666');
+
+                        const item = document.createElement('div');
+                        item.className = 'rnn-item';
+                        item.innerHTML = `
+                            <div class="rnn-name" style="font-size:13px">${props.libelle || props.nom}</div>
+                            <div class="rnn-info" style="color:${color}">${label} • ${props.regime || ''}</div>
+                        `;
+                        item.onclick = () => {
+                            const [lng, lat] = feature.geometry.coordinates;
+                            map.flyTo([lat, lng], 15);
+                            // Highlight on map is handled by layerGroup iteration usually, but for simplicity:
+                            icpeLayer.eachLayer(l => {
+                                if (l.feature === feature) l.openPopup();
+                            });
+                            // Also try in specific seveso layers if not found
+                            [sevesoHautLayer, sevesoBasLayer].forEach(layer => {
+                                layer.eachLayer(l => { if (l.feature === feature) l.openPopup(); });
+                            });
+                            
+                            document.querySelectorAll('.rnn-item').forEach(i => i.classList.remove('active'));
+                            item.classList.add('active');
+                        };
+                        list.appendChild(item);
+                    });
+                }
+            }
+        }
+
+        function renderMapLayers() {
+            // Filter ICPE into 3 groups
+            const geojsonICPE = dataICPE.features.filter(f => !f.properties.cat_seveso || f.properties.cat_seveso === 'NON_SEVESO');
+            const geojsonSevesoBas = dataICPE.features.filter(f => f.properties.cat_seveso === 'SEUIL_BAS');
+            const geojsonSevesoHaut = dataICPE.features.filter(f => f.properties.cat_seveso === 'SEUIL_HAUT');
+
+            const createICPELayer = (features, colorKey, isSeveso) => {
+                return L.geoJSON({type: "FeatureCollection", features: features}, {
+                    pointToLayer: (feature, latlng) => {
+                        const regime = feature.properties.regime || 'D';
+                        const color = isSeveso ? regimeColors[colorKey] : (regimeColors[regime.charAt(0)] || regimeColors['Inconnu']);
+                        return L.circleMarker(latlng, {
+                            radius: isSeveso ? (colorKey === 'SEVESO_HAUT' ? 9 : 7) : 4,
+                            fillColor: color,
+                            color: isSeveso ? 'black' : 'white',
+                            weight: isSeveso ? 2 : 1,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        });
+                    },
+                    onEachFeature: (feature, layer) => {
+                        const p = feature.properties;
+                        const desc = isSeveso ? (colorKey === 'SEVESO_HAUT' ? descriptions.SEVESO_HAUT : descriptions.SEVESO_BAS) : descriptions.ICPE;
+                        layer.bindPopup(`
+                            <div style="min-width: 200px;">
+                                <strong style="font-size: 14px;">${p.libelle || p.nom}</strong><br>
+                                <em style="color: #666;">${isSeveso ? '⚠️ SEVESO ' + p.cat_seveso.replace('_', ' ') : 'Régime: ' + p.regime}</em><br>
+                                <p style="font-size:11px; color:#444; margin: 8px 0;">${desc}</p>
+                                <div style="border-top: 1px solid #eee; padding-top: 8px; margin-top: 8px; display: flex; justify-content: space-between; align-items: center;">
+                                    <a href="${p.fiche}" target="_blank" style="font-weight: bold; color: #0066cc; text-decoration: none;">Fiche Géorisques →</a>
+                                    <a href="https://opendata.bordeaux-metropole.fr/explore/dataset/ri_icpe_p/" target="_blank" title="Source: Bordeaux Métropole" style="font-size: 10px; color: #888; text-decoration: underline;">Source OpenData</a>
+                                </div>
+                            </div>
+                        `);
+                    }
+                });
+            };
+
+            const icpeLayerGroup = createICPELayer(geojsonICPE, null, false);
+            const sevesoBasLayer = createICPELayer(geojsonSevesoBas, 'SEVESO_BAS', true);
+            const sevesoHautLayer = createICPELayer(geojsonSevesoHaut, 'SEVESO_HAUT', true);
+
+            // ENS Layer
+            ensLayer = L.geoJSON(dataENS, {
+                style: { color: '#2980b9', weight: 1, fillColor: '#3498db', fillOpacity: 0.1 },
+                onEachFeature: (f, l) => l.bindPopup(`
+                    <strong>${f.properties.ens_libelle}</strong><br>
+                    <p style="font-size:11px">${descriptions.ENS}</p>
+                    <a href="https://www.data.gouv.fr/fr/datasets/propriete-du-departement-de-la-gironde-au-titre-de-la-protection-des-espaces-naturels-sensibles-rdl/" target="_blank" style="font-size: 10px; color: #888;">Source: Département Gironde</a>
+                `)
+            });
+
+            // RNN Layer
+            rnnLayer = L.geoJSON(dataRNN, {
+                style: { color: '#16a34a', weight: 2, fillColor: '#22c55e', fillOpacity: 0.1 },
+                onEachFeature: (f, l) => l.bindPopup(`
+                    <strong>${f.properties.nom_site}</strong><br>
+                    <p style="font-size:11px">${descriptions.RNN}</p>
+                    <div style="display: flex; justify-content: space-between;">
+                        <a href="${f.properties.url_fiche}" target="_blank" style="font-size: 11px; font-weight: bold;">Fiche INPN →</a>
+                        <a href="https://inpn.mnhn.fr/telechargement/cartes-et-information-geographique/mnhn/resnat" target="_blank" style="font-size: 10px; color: #888;">Source: INPN</a>
+                    </div>
+                `)
+            });
+
+            // Default on map
+            sevesoHautLayer.addTo(map);
+            sevesoBasLayer.addTo(map);
+            icpeLayerGroup.addTo(map);
+            rnnLayer.addTo(map);
+            ensLayer.addTo(map);
+
+            L.control.layers(null, {
+                "⚠️ SEVESO Seuil Haut": sevesoHautLayer,
+                "⚠️ SEVESO Seuil Bas": sevesoBasLayer,
+                "ICPE Standard": icpeLayerGroup,
+                "Réserves (RNN)": rnnLayer,
+                "Espaces Sensibles (ENS)": ensLayer
+            }, { collapsed: false, position: 'topright' }).addTo(map);
+        }
+
+        function selectArea(feature, element, type) {
+            document.querySelectorAll('.rnn-item').forEach(i => i.classList.remove('active'));
+            element.classList.add('active');
+
+            const center = turf.centroid(feature);
+            const [lng, lat] = center.geometry.coordinates;
+            
+            map.flyTo([lat, lng], 13, { duration: 1.5 });
+            
+            showProximityAnalysis(feature, [lat, lng], type);
+        }
+
+        function showProximityAnalysis(areaFeature, centerCoords, type) {
+            const panel = document.getElementById('detailPanel');
+            const content = document.getElementById('detailContent');
+            
+            if (proximityCircle) map.removeLayer(proximityCircle);
+            proximityCircle = L.circle(centerCoords, {
+                radius: currentRadius * 1000,
+                color: '#ef4444',
+                weight: 1,
+                fillColor: '#ef4444',
+                fillOpacity: 0.05,
+                dashArray: '5, 10'
+            }).addTo(map);
+
+            // Analysis logic
+            const nearbyICPE = dataICPE.features.filter(icpe => {
+                const pt = turf.point(icpe.geometry.coordinates);
+                let dist;
+                try {
+                    dist = turf.booleanPointInPolygon(pt, areaFeature) ? 0 : turf.pointToLineDistance(pt, turf.polygonToLine(areaFeature), {units: 'kilometers'});
+                } catch(e) {
+                    dist = turf.distance(pt, turf.centroid(areaFeature), {units: 'kilometers'});
+                }
+                icpe.properties._distance = dist;
+                return dist <= currentRadius;
+            }).sort((a, b) => {
+                const aS = a.properties.cat_seveso || '';
+                const bS = b.properties.cat_seveso || '';
+                if (aS === 'SEUIL_HAUT' && bS !== 'SEUIL_HAUT') return -1;
+                if (aS !== 'SEUIL_HAUT' && bS === 'SEUIL_HAUT') return 1;
+                if (aS === 'SEUIL_BAS' && bS === 'NON_SEVESO') return -1;
+                return a.properties._distance - b.properties._distance;
+            });
+
+            const name = areaFeature.properties.nom_site || areaFeature.properties.ens_libelle || 'Site protégé';
+            const areaDesc = type === 'RNN' ? descriptions.RNN : descriptions.ENS;
+
+            content.innerHTML = `
+                <h2 style="margin-top:0">${name}</h2>
+                <div class="area-description" style="font-size:12px; font-style:italic; color:#666; margin-bottom:15px;">
+                    ${areaDesc}
+                </div>
+                <div style="font-size: 14px; margin-bottom: 20px;">
+                    Analyse : <strong>${nearbyICPE.length}</strong> ICPE trouvées dans un rayon de ${currentRadius}km.
+                </div>
+                <div class="proximity-list">
+                    ${nearbyICPE.map(icpe => {
+                        const p = icpe.properties;
+                        const isHaut = p.cat_seveso === 'SEUIL_HAUT';
+                        const isBas = p.cat_seveso === 'SEUIL_BAS';
+                        const color = isHaut ? regimeColors.SEVESO_HAUT : (isBas ? regimeColors.SEVESO_BAS : (regimeColors[p.regime?.charAt(0)] || regimeColors.Inconnu));
+                        const label = isHaut ? '⚠️ SEVESO HAUT' : (isBas ? '⚠️ SEVESO BAS' : p.regime);
+                        const icpeDesc = isHaut ? descriptions.SEVESO_HAUT : (isBas ? descriptions.SEVESO_BAS : descriptions.ICPE);
+                        
+                        return `
+                            <div class="icpe-proximity-item" style="${isHaut || isBas ? 'border: 2px solid ' + color + '; background: #fff1f2;' : ''}">
+                                <span class="icpe-tag" style="background: ${color}; color: white;">${label}</span>
+                                <div style="font-weight:600">${p.libelle || p.nom}</div>
+                                <div style="font-size:10px; color:#777; margin:5px 0;">${icpeDesc}</div>
+                                <div style="font-size:11px; color:#888">Distance : ${p._distance.toFixed(2)} km</div>
+                                <a href="${p.fiche}" target="_blank" style="font-size:11px; color:#0066cc; text-decoration:none;">Fiche Géorisques →</a>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+
+            panel.classList.add('open');
+        }
+
+        function closeDetail() {
+            document.getElementById('detailPanel').classList.remove('open');
+            if (proximityCircle) map.removeLayer(proximityCircle);
+            document.querySelectorAll('.rnn-item').forEach(i => i.classList.remove('active'));
+        }
+
+        document.getElementById('radiusInput').oninput = (e) => {
+            currentRadius = e.target.value;
+            document.getElementById('radiusVal').innerText = currentRadius;
+            const activeItem = document.querySelector('.rnn-item.active');
+            if (activeItem) {
+                const name = activeItem.querySelector('.rnn-name').innerText;
+                const type = activeItem.querySelector('.rnn-info').innerText.startsWith('RNN') ? 'RNN' : 'ENS';
+                const dataset = type === 'RNN' ? dataRNN : dataENS;
+                const feature = dataset.features.find(f => (f.properties.nom_site || f.properties.NOM || f.properties.ens_libelle) === name);
+                const center = turf.centroid(feature);
+                showProximityAnalysis(feature, [center.geometry.coordinates[1], center.geometry.coordinates[0]], type);
+            }
+        };
+
+        // Search Logic
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            renderLocationList(e.target.value);
+        });
+
+        init();
+    </script>
+</body>
+</html>
