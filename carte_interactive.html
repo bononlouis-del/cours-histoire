@@ -112,20 +112,30 @@
             } catch (e) { console.error(e); }
         }
 
-        loadICPE('data/icpe_gironde.geojson');
-        loadRNN('data/rnn_gironde.geojson');
-        loadENS('data/ens_gironde.geojson');
+        async function init() {
+            await Promise.all([
+                loadICPE('data/icpe_gironde.geojson'),
+                loadRNN('data/rnn_gironde.geojson'),
+                loadENS('data/ens_gironde.geojson')
+            ]);
 
-        sevesoHautLayer.addTo(map); sevesoBasLayer.addTo(map); icpeLayer.addTo(map); rnnLayer.addTo(map); ensLayer.addTo(map);
+            sevesoHautLayer.addTo(map);
+            sevesoBasLayer.addTo(map);
+            icpeLayer.addTo(map);
+            rnnLayer.addTo(map);
+            ensLayer.addTo(map);
 
-        const overlayMaps = {
-            "⚠️ SEVESO Seuil Haut": sevesoHautLayer,
-            "⚠️ SEVESO Seuil Bas": sevesoBasLayer,
-            "ICPE (Autres)": icpeLayer,
-            "Réserves Naturelles (RNN)": rnnLayer,
-            "Espaces Naturels (ENS)": ensLayer
-        };
-        L.control.layers(null, overlayMaps, { collapsed: false }).addTo(map);
+            const overlayMaps = {
+                "⚠️ SEVESO Seuil Haut": sevesoHautLayer,
+                "⚠️ SEVESO Seuil Bas": sevesoBasLayer,
+                "ICPE (Autres)": icpeLayer,
+                "Réserves Naturelles (RNN)": rnnLayer,
+                "Espaces Naturels (ENS)": ensLayer
+            };
+            L.control.layers(null, overlayMaps, { collapsed: false }).addTo(map);
+        }
+
+        init();
 
         const legend = L.control({position: 'bottomright'});
         legend.onAdd = function () {
