@@ -423,11 +423,25 @@
 
             // RNN Layer
             rnnLayer = L.geoJSON(dataRNN, {
-                style: { color: '#16a34a', weight: 2, fillColor: '#22c55e', fillOpacity: 0.1 },
+                pointToLayer: (feature, latlng) => {
+                    return L.circleMarker(latlng, {
+                        radius: 8,
+                        fillColor: '#16a34a',
+                        color: 'white',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.9
+                    });
+                },
                 onEachFeature: (f, l) => l.bindPopup(`
                     <strong>${f.properties.nom_site}</strong><br>
                     <p style="font-size:11px">${descriptions.RNN}</p>
                     <div style="display: flex; justify-content: space-between;">
+                        <a href="${f.properties.url_fiche}" target="_blank" style="font-weight: bold; color: #16a34a; text-decoration: none;">Fiche RNN →</a>
+                        <span style="font-size: 10px; color: #888;">Source: Préfet Gironde</span>
+                    </div>
+                `)
+            });
                         <a href="${f.properties.url_fiche}" target="_blank" style="font-size: 11px; font-weight: bold;">Fiche INPN →</a>
                         <a href="https://inpn.mnhn.fr/telechargement/cartes-et-information-geographique/mnhn/resnat" target="_blank" style="font-size: 10px; color: #888;">Source: INPN</a>
                     </div>
