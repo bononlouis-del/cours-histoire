@@ -138,14 +138,17 @@
                 const data = await response.json();
                 rnnFeatures = data.features;
                 L.geoJSON(data, {
-                    pointToLayer: (f, latlng) => {
-                        const marker = L.circleMarker(latlng, {
-                            radius: 8, fillColor: '#16a34a', color: 'white', weight: 2, opacity: 1, fillOpacity: 0.9
-                        });
-                        f.marker = marker; // Stocker le marqueur pour y accéder plus tard
-                        return marker;
+                    style: {
+                        color: '#16a34a',
+                        weight: 2,
+                        opacity: 0.8,
+                        fillColor: '#22c55e',
+                        fillOpacity: 0.3
                     },
-                    onEachFeature: (f, l) => l.bindPopup(`<strong>${f.properties.nom_site}</strong><br><a href="${f.properties.url_fiche}" target="_blank">Fiche RNN →</a>`)
+                    onEachFeature: (f, l) => {
+                        f.layer = l; // Stocker le layer pour y accéder
+                        l.bindPopup(`<strong>${f.properties.nom_site}</strong><br><a href="${f.properties.url_fiche}" target="_blank">Fiche RNN →</a>`);
+                    }
                 }).addTo(rnnLayer);
             } catch (e) { console.error(e); }
         }
@@ -173,9 +176,12 @@
                     const div = document.createElement('div');
                     div.textContent = m.properties.nom_site;
                     div.onclick = () => {
-                        const coords = m.geometry.coordinates;
-                        map.setView([coords[1], coords[0]], 13);
-                        m.marker.openPopup();
+                        if (m.layer.getBounds) {
+                            map.fitBounds(m.layer.getBounds());
+                        } else {
+                            map.setView(m.layer.getLatLng(), 14);
+                        }
+                        m.layer.openPopup();
                         resultsDiv.style.display = 'none';
                         searchInput.value = m.properties.nom_site;
                     };
