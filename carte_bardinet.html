@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyse des Risques : Site Bardinet (Seveso)</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        :root {
+            --apple-bg: #f5f5f7;
+            --apple-glass: rgba(255, 255, 255, 0.9);
+        }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--apple-bg); overflow: hidden; }
+        #map { height: 100vh; width: 100vw; }
+
+        /* UI Panels */
+        .panel {
+            position: absolute; background: var(--apple-glass); backdrop-filter: blur(20px);
+            border-radius: 20px; z-index: 1000; box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.4); padding: 20px;
+        }
+        .header { top: 20px; left: 50%; transform: translateX(-50%); text-align: center; min-width: 300px; }
+        .legend { bottom: 30px; right: 20px; width: 280px; font-size: 12px; }
+
+        h1 { margin: 0; font-size: 18px; font-weight: 700; color: #1d1d1f; }
+        .subtitle { font-size: 11px; color: #86868b; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+        .legend-item { margin-bottom: 12px; display: flex; align-items: flex-start; }
+        .circle-prev { width: 14px; height: 14px; border-radius: 50%; margin-right: 12px; flex-shrink: 0; margin-top: 2px; }
+        
+        .zone-title { font-weight: 700; font-size: 13px; display: block; }
+        .zone-desc { color: #666; font-size: 11px; line-height: 1.3; }
+
+        /* Control Styles */
+        .leaflet-control-layers { border-radius: 15px !important; border: none !important; box-shadow: 0 8px 32px rgba(0,0,0,0.1) !important; padding: 10px !important; }
+    </style>
+</head>
+<body>
+
+    <div class="panel header">
+        <h1>Analyse d'Impact : Bardinet (Blanquefort)</h1>
+        <div class="subtitle">Modélisation des zones de danger & consultation</div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="panel legend">
+        <div style="font-weight:700; margin-bottom:15px; border-bottom:1px solid #ddd; padding-bottom:8px;">Périmètres de Sécurité</div>
+        
+        <div class="legend-item">
+            <div class="circle-prev" style="background: rgba(255, 0, 0, 0.4); border: 2px solid red;"></div>
+            <div>
+                <span class="zone-title">Zone Rouge (500m)</span>
+                <span class="zone-desc">Létalité immédiate. Interdiction de construire. Incompatible avec accueil du public.</span>
+            </div>
+        </div>
+
+        <div class="legend-item">
+            <div class="circle-prev" style="background: rgba(0, 0, 255, 0.2); border: 2px solid blue;"></div>
+            <div>
+                <span class="zone-title">Zone Bleue (1 km)</span>
+                <span class="zone-desc">Létalité réduite / blessures graves. Protection obligatoire des bâtiments.</span>
+            </div>
+        </div>
+
+        <div class="legend-item">
+            <div class="circle-prev" style="background: rgba(255, 165, 0, 0.15); border: 2px solid orange;"></div>
+            <div>
+                <span class="zone-title">Périmètre PPI (5 km)</span>
+                <span class="zone-desc">Alerte & Secours (Sirènes). Plan d'urgence et analyse écologique.</span>
+            </div>
+        </div>
+
+        <div class="legend-item">
+            <div class="circle-prev" style="background: rgba(128, 128, 128, 0.05); border: 2px solid gray; border-style: dashed;"></div>
+            <div>
+                <span class="zone-title">Zone de Consultation (20 km)</span>
+                <span class="zone-desc">Risques environnementaux indirects. Avis obligatoire Autorité Environnementale.</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const bardinetCoords = [44.9045, -0.6245];
+
+        const map = L.map('map', {
+            center: bardinetCoords,
+            zoom: 13,
+            zoomControl: false
+        });
+
+        L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
+        const baseMaps = {
+            "Plan": L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© OSM' }).addTo(map),
+            "Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' })
+        };
+
+        // Marqueur de l'usine
+        L.marker(bardinetCoords).addTo(map)
+            .bindPopup("<strong>Site Industriel Bardinet</strong><br>Blanquefort (33290)<br>Classification : Seveso Seuil Haut")
+            .openPopup();
+
+        // --- ZONES DE DANGER ---
+
+        const zoneRouge = L.circle(bardinetCoords, {
+            radius: 500,
+            color: 'red',
+            fillColor: 'red',
+            fillOpacity: 0.3,
+            weight: 2
+        }).addTo(map).bindPopup("<b>Zone Rouge</b> : Létalité (500m)");
+
+        const zoneBleue = L.circle(bardinetCoords, {
+            radius: 1000,
+            color: 'blue',
+            fillColor: 'blue',
+            fillOpacity: 0.15,
+            weight: 2
+        }).addTo(map).bindPopup("<b>Zone Bleue</b> : Létalité réduite (1km)");
+
+        const zonePPI = L.circle(bardinetCoords, {
+            radius: 5000,
+            color: 'orange',
+            fillColor: 'orange',
+            fillOpacity: 0.08,
+            weight: 2
+        }).addTo(map).bindPopup("<b>Périmètre PPI</b> : Zone d'alerte (5km)");
+
+        const zoneAE = L.circle(bardinetCoords, {
+            radius: 20000,
+            color: 'gray',
+            fillColor: 'gray',
+            fillOpacity: 0.03,
+            weight: 1,
+            dashArray: '5, 10'
+        }).addTo(map).bindPopup("<b>Zone de Consultation</b> : Risques indirects (20km)");
+
+        const overlayMaps = {
+            "Zone Rouge (Létalité)": zoneRouge,
+            "Zone Bleue (Blessures)": zoneBleue,
+            "Périmètre PPI (Alerte)": zonePPI,
+            "Zone Consultation (AE)": zoneAE
+        };
+
+        L.control.layers(baseMaps, overlayMaps, { collapsed: false, position: 'topright' }).addTo(map);
+        L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(map);
+
+    </script>
+</body>
+</html>
