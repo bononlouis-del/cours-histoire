@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gironde : Analyse Environnementale & Industrielle</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root { --glass: rgba(255, 255, 255, 0.95); }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: -apple-system, sans-serif; background: #f5f5f7; overflow: hidden; }
+        #map { height: 100vh; width: 100vw; }
+        .panel {
+            position: absolute; background: var(--glass); backdrop-filter: blur(20px);
+            border-radius: 20px; z-index: 1000; box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.4); padding: 15px;
+        }
+        .header { top: 15px; left: 50%; transform: translateX(-50%); text-align: center; min-width: 320px; }
+        .legend { bottom: 30px; left: 20px; width: 260px; font-size: 11px; max-height: 60vh; overflow-y: auto; }
+        .leg-section { margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+        .leg-item { display: flex; align-items: center; margin-bottom: 5px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; }
+        .box { width: 12px; height: 12px; border-radius: 2px; margin-right: 10px; opacity: 0.6; }
+    </style>
+</head>
+<body>
+
+    <div class="panel header">
+        <h1 style="margin:0; font-size:16px;">Gironde : Analyse Industrielle & Espaces Protégés</h1>
+        <div style="font-size:10px; color:#666; text-transform:uppercase;">Données Locales (RNN • ENS • ICPE SEVESO)</div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="panel legend">
+        <div class="leg-section">
+            <strong>⚠️ Établissements Industriels</strong>
+            <div class="leg-item"><div class="dot" style="background:#7f1d1d; border:1px solid black;"></div>Seveso Seuil Haut</div>
+            <div class="leg-item"><div class="dot" style="background:#ef4444; border:1px solid black;"></div>Seveso Seuil Bas</div>
+            <div class="leg-item"><div class="dot" style="background:#3b82f6;"></div>Autres ICPE</div>
+        </div>
+        <div class="leg-section">
+            <strong>🌿 Espaces Naturels</strong>
+            <div class="leg-item"><div class="box" style="background:#16a34a; border:1px solid #16a34a;"></div>Réserves Naturelles (RNN)</div>
+            <div class="leg-item"><div class="box" style="background:#3498db; border:1px solid #3498db;"></div>Espaces Sensibles (ENS)</div>
+        </div>
+        <p style="font-size:9px; color:#888;">Note : Cliquez sur un site pour voir les détails.</p>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map', { center: [44.837, -0.579], zoom: 9, zoomControl: false });
+        L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© OSM' }).addTo(map);
+
+        async function loadGirondeData() {
+            try {
+                const [resRNN, resENS, resICPE] = await Promise.all([
+                    fetch('data/rnn_gironde.geojson'),
+                    fetch('data/ens_gironde.geojson'),
+                    fetch('data/icpe_gironde.geojson')
+                ]);
+
+                // 1. RNN (Vert)
+                const dataRNN = await resRNN.json();
+                L.geoJSON(dataRNN, {
+                    style: { color: '#16a34a', weight: 2, fillColor: '#22c55e', fillOpacity: 0.3 },
+                    onEachFeature: (f, l) => l.bindPopup(`<strong>RNN : ${f.properties.nom_site || f.properties.NOM}</strong>`)
+                }).addTo(map);
+
+                // 2. ENS (Bleu clair)
+                const dataENS = await resENS.json();
+                L.geoJSON(dataENS, {
+                    style: { color: '#3498db', weight: 1, fillColor: '#3498db', fillOpacity: 0.15 },
+                    onEachFeature: (f, l) => l.bindPopup(`<strong>ENS : ${f.properties.ens_libelle || 'Site Protégé'}</strong>`)
+                }).addTo(map);
+
+                // 3. ICPE & SEVESO (Points colorés)
+                const dataICPE = await resICPE.json();
+                L.geoJSON(dataICPE, {
+                    pointToLayer: (feature, latlng) => {
+                        const cat = feature.properties.cat_seveso;
+                        let color = '#3b82f6'; // Défaut ICPE
+                        let radius = 4;
+                        let weight = 1;
+
+                        if (cat === 'SEUIL_HAUT') { color = '#7f1d1d'; radius = 8; weight = 2; }
+                        else if (cat === 'SEUIL_BAS') { color = '#ef4444'; radius = 6; weight = 2; }
+
+                        return L.circleMarker(latlng, {
+                            radius: radius,
+                            fillColor: color,
+                            color: 'black',
+                            weight: weight,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        });
+                    },
+                    onEachFeature: (f, l) => {
+                        const p = f.properties;
+                        l.bindPopup(`
+                            <strong>${p.libelle || p.nom}</strong><br>
+                            ${p.cat_seveso ? '⚠️ Seveso : ' + p.cat_seveso : 'ICPE'}<br>
+                            Commune : ${p.commune || ''}
+                        `);
+                    }
+                }).addTo(map);
+
+                // Focus sur Bardinet (Blanquefort)
+                const bardinetCoords = [44.9045, -0.6245];
+                L.marker(bardinetCoords).addTo(map).bindPopup("<b>Site Industriel Bardinet</b>").openPopup();
+
+            } catch (e) {
+                console.error("Erreur de chargement des données locales", e);
+            }
+        }
+
+        loadGirondeData();
+    </script>
+</body>
+</html>
