@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carte Environnementale de France : Seveso, RNN & ENS</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        :root {
+            --apple-bg: #f5f5f7;
+            --apple-glass: rgba(255, 255, 255, 0.85);
+            --apple-text: #1d1d1f;
+            --seveso-high: #450a0a;
+            --seveso-low: #b91c1c;
+            --rnn-color: #16a34a;
+            --ens-color: #3498db;
+        }
+
+        body, html { 
+            margin: 0; padding: 0; height: 100%; 
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+            background: var(--apple-bg);
+            color: var(--apple-text);
+            overflow: hidden;
+        }
+
+        #map { height: 100vh; width: 100vw; }
+
+        /* UI Elements */
+        .header-panel {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--apple-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 15px 25px;
+            border-radius: 20px;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.3);
+            min-width: 300px;
+        }
+
+        h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+        .subtitle { font-size: 11px; color: #86868b; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            right: 20px;
+            background: var(--apple-glass);
+            backdrop-filter: blur(20px);
+            padding: 20px;
+            border-radius: 20px;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            font-size: 13px;
+            border: 1px solid rgba(255,255,255,0.3);
+            width: 240px;
+        }
+
+        .legend-title { font-weight: 700; margin-bottom: 12px; font-size: 14px; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 8px; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 8px; }
+        .box { width: 16px; height: 16px; border-radius: 4px; margin-right: 12px; flex-shrink: 0; }
+        .circle { width: 12px; height: 12px; border-radius: 50%; margin-right: 14px; flex-shrink: 0; border: 2px solid white; box-shadow: 0 0 0 1px rgba(0,0,0,0.2); }
+
+        .source-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            font-size: 10px;
+            color: #86868b;
+            z-index: 1000;
+            background: rgba(255,255,255,0.5);
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+
+        /* Custom Leaflet Control Layer Style */
+        .leaflet-control-layers {
+            border-radius: 15px !important;
+            border: none !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1) !important;
+            padding: 10px !important;
+            background: var(--apple-glass) !important;
+            backdrop-filter: blur(20px) !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-panel">
+        <h1>Atlas Environnemental National</h1>
+        <div class="subtitle">France métropolitaine & Outre-mer</div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="legend">
+        <div class="legend-title">Légende des Couches</div>
+        
+        <div class="legend-item">
+            <div class="circle" style="background: var(--seveso-high);"></div>
+            <span><b>Seveso</b> (Seuil Haut)</span>
+        </div>
+        <div class="legend-item">
+            <div class="circle" style="background: var(--seveso-low);"></div>
+            <span><b>Seveso</b> (Seuil Bas)</span>
+        </div>
+        <div class="legend-item">
+            <div class="circle" style="background: #ef4444; width: 8px; height: 8px;"></div>
+            <span>Autres ICPE</span>
+        </div>
+        
+        <div style="margin: 12px 0; border-top: 1px solid rgba(0,0,0,0.05);"></div>
+        
+        <div class="legend-item">
+            <div class="box" style="background: var(--rnn-color); opacity: 0.6; border: 1px solid var(--rnn-color);"></div>
+            <span>Réserves Naturelles (RNN)</span>
+        </div>
+        <div class="legend-item">
+            <div class="box" style="background: var(--ens-color); opacity: 0.6; border: 1px solid var(--ens-color);"></div>
+            <span>Espaces Naturels (ENS)</span>
+        </div>
+    </div>
+
+    <div class="source-info">
+        Sources : Géorisques (Ministère Transition Écologique), INPN (MNHN).
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // Initialisation de la carte centrée sur la France
+        const map = L.map('map', {
+            center: [46.603354, 1.888334],
+            zoom: 6,
+            zoomControl: false
+        });
+
+        // Ajout du contrôle de zoom en bas à gauche
+        L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
+        // Fonds de carte
+        const cartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+        }).addTo(map);
+
+        const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EBP, and the GIS User Community'
+        });
+
+        // --- COUCHES WMS ---
+
+        // 1. ICPE Seveso (Géorisques)
+        const seveso = L.tileLayer.wms('https://www.georisques.gouv.fr/services', {
+            layers: 'ms:V_ETABLISSEMENT_SEVESO',
+            format: 'image/png',
+            transparent: true,
+            version: '1.3.0',
+            attribution: 'Géorisques'
+        }).addTo(map);
+
+        // 2. Toutes les ICPE (Régimes A, E, D)
+        const icpeAll = L.tileLayer.wms('https://www.georisques.gouv.fr/services', {
+            layers: 'ms:V_INSTALLATION_CLASSIE_HORS_S3IC',
+            format: 'image/png',
+            transparent: true,
+            version: '1.3.0',
+            attribution: 'Géorisques'
+        });
+
+        // 3. RNN (INPN)
+        const rnn = L.tileLayer.wms('https://ws.carmencarto.fr/WMS/119/fxx_inpn', {
+            layers: 'RNN',
+            format: 'image/png',
+            transparent: true,
+            version: '1.3.0',
+            attribution: 'INPN/MNHN'
+        }).addTo(map);
+
+        // 4. ENS (INPN)
+        const ens = L.tileLayer.wms('https://ws.carmencarto.fr/WMS/119/fxx_inpn', {
+            layers: 'ENS',
+            format: 'image/png',
+            transparent: true,
+            version: '1.3.0',
+            attribution: 'INPN/MNHN'
+        }).addTo(map);
+
+        // --- CONTRÔLE DES COUCHES ---
+        const baseMaps = {
+            "Plan Clair (CartoDB)": cartoLight,
+            "Satellite (Esri)": satellite
+        };
+
+        const overlayMaps = {
+            "<b>⚠️ Sites Seveso</b>": seveso,
+            "Autres ICPE": icpeAll,
+            "<span style='color: #16a34a;'><b>Réserves (RNN)</b></span>": rnn,
+            "<span style='color: #3498db;'><b>Espaces (ENS)</b></span>": ens
+        };
+
+        L.control.layers(baseMaps, overlayMaps, { collapsed: false, position: 'topright' }).addTo(map);
+
+        // Échelle
+        L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(map);
+
+    </script>
+</body>
+</html>
