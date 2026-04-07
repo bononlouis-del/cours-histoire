@@ -6,7 +6,7 @@
     <title>Bardinet : Analyse Restreinte (Rayon 20km)</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --glass: rgba(255, 255, 255, 0.95); }
+        :root { --glass: rgba(255, 255, 255, 0.98); }
         body, html { margin: 0; padding: 0; height: 100%; font-family: -apple-system, sans-serif; overflow: hidden; background: #000; }
         #map { height: 100vh; width: 100vw; background: #1a1a1a; }
         
@@ -16,44 +16,78 @@
             border: 1px solid rgba(255,255,255,0.4); padding: 15px;
         }
         .header { top: 15px; left: 50%; transform: translateX(-50%); text-align: center; min-width: 380px; }
-        .legend { bottom: 30px; left: 20px; width: 260px; font-size: 11px; }
+        .legend { bottom: 30px; left: 20px; width: 280px; font-size: 11px; max-height: 80vh; overflow-y: auto; }
 
-        .leg-section { margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-        .leg-item { display: flex; align-items: center; margin-bottom: 4px; }
-        .circle { width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; }
-        .box { width: 12px; height: 12px; border-radius: 2px; margin-right: 10px; }
+        .leg-section { margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+        .leg-title { font-weight: 800; font-size: 10px; color: #c00; text-transform: uppercase; margin-bottom: 8px; display: block; }
+        .leg-item { display: flex; align-items: flex-start; margin-bottom: 6px; line-height: 1.3; }
+        
+        .circle { width: 10px; height: 10px; border-radius: 50%; margin-right: 12px; flex-shrink: 0; margin-top: 2px; }
+        .box { width: 14px; height: 14px; border-radius: 3px; margin-right: 10px; flex-shrink: 0; }
         
         h1 { margin: 0; font-size: 15px; font-weight: 800; text-transform: uppercase; color: #c00; }
         .subtitle { font-size: 10px; color: #444; font-weight: 600; }
+        
+        .info-detail { font-size: 9px; color: #666; display: block; margin-top: 1px; }
     </style>
 </head>
 <body>
 
     <div class="panel header">
-        <h1>Analyse Exclusive : Rayon 20km (Bardinet)</h1>
-        <div class="subtitle">Filtrage strict des données Gironde • Zone de Blanquefort</div>
+        <h1>Analyse d'Impact : Rayon 20km (Bardinet)</h1>
+        <div class="subtitle">Zone d'étude Blanquefort • Filtrage Strict des données</div>
     </div>
 
     <div id="map"></div>
 
     <div class="panel legend">
         <div class="leg-section">
-            <strong>⚠️ Périmètres Seveso</strong>
-            <div class="leg-item"><div class="circle" style="background:red;"></div>Zone Rouge (500m)</div>
-            <div class="leg-item"><div class="circle" style="background:blue;"></div>Zone Bleue (1km)</div>
-            <div class="leg-item"><div class="circle" style="border:2px dashed orange;"></div>PPI (5km) - Alerte</div>
+            <span class="leg-title">⚠️ Risques Technologiques (Seveso)</span>
+            <div class="leg-item">
+                <div class="circle" style="background:red;"></div>
+                <div><b>Zone Rouge (500m)</b><span class="info-detail">Létalité immédiate. Interdiction de construire.</span></div>
+            </div>
+            <div class="leg-item">
+                <div class="circle" style="background:blue;"></div>
+                <div><b>Zone Bleue (1km)</b><span class="info-detail">Létalité réduite. Protection des riverains obligatoire.</span></div>
+            </div>
+            <div class="leg-item">
+                <div class="circle" style="border:2px dashed orange; background:none;"></div>
+                <div><b>Périmètre PPI (5km)</b><span class="info-detail">Zone d'alerte (sirènes) et plan de secours (sirènes).</span></div>
+            </div>
         </div>
+
         <div class="leg-section">
-            <strong>📍 Données Filtrées (< 20km)</strong>
-            <div class="leg-item"><div class="circle" style="background:#8b5cf6; border:1px solid white;"></div>Social (Biblio, Asso, MJC)</div>
-            <div class="leg-item"><div class="circle" style="background:#3b82f6; border:1px solid white;"></div>Autres Usines ICPE</div>
+            <span class="leg-title">🏠 Occupation du sol (Riverains & Champs)</span>
+            <div class="leg-item">
+                <div class="box" style="background:#e6004d;"></div>
+                <div><b>Quartiers Résidentiels</b><span class="info-detail">Zones urbaines denses et tissus pavillonnaires.</span></div>
+            </div>
+            <div class="leg-item">
+                <div class="box" style="background:#fff200; border:1px solid #ccc;"></div>
+                <div><b>Zones Agricoles</b><span class="info-detail">Terres arables, vignobles et prairies d'élevage.</span></div>
+            </div>
+            <div class="leg-item">
+                <div class="box" style="background:#a6a6ff;"></div>
+                <div><b>Zones Industrielles</b><span class="info-detail">Entrepôts et activités économiques majeures.</span></div>
+            </div>
         </div>
+
         <div class="leg-section">
-            <strong>🏠 Occupation du Sol</strong>
-            <div class="leg-item"><div class="box" style="background:#e6004d;"></div>Quartiers Résidentiels</div>
-            <div class="leg-item"><div class="box" style="background:#fff200; border:1px solid #ccc;"></div>Zones Agricoles</div>
+            <span class="leg-title">📍 Points d'intérêt (Services & Industrie)</span>
+            <div class="leg-item">
+                <div class="circle" style="background:#8b5cf6; border:1px solid white;"></div>
+                <div><b>Structures Sociales (Points violets)</b><span class="info-detail">Bibliothèques, associations, CCAS, centres d'animation.</span></div>
+            </div>
+            <div class="leg-item">
+                <div class="circle" style="background:#3b82f6; border:1px solid white;"></div>
+                <div><b>Autres Usines ICPE (Points bleus)</b><span class="info-detail">Établissements classés pour l'environnement.</span></div>
+            </div>
         </div>
-        <p style="font-size:9px; color:#c00; font-weight:700;">AUCUNE DONNÉE AU-DELÀ DE 20 KM</p>
+
+        <p style="font-size:8px; color:#888; margin:0; line-height:1.2;">
+            Sources : Corine Land Cover (Urbain/Agri), Géorisques (Industrie), Inclusion Numérique Bordeaux Métropole (Social).
+        </p>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -61,36 +95,32 @@
 
     <script>
         const bardinet = [44.9045, -0.6245];
-        const maxRadius = 20000; // 20km en mètres
+        const maxRadius = 20000;
 
         const map = L.map('map', { 
-            center: bardinet, 
-            zoom: 12, 
-            zoomControl: false,
-            maxBounds: L.latLng(bardinet).toBounds(40000), // Limite la navigation
-            minZoom: 10
+            center: bardinet, zoom: 12, zoomControl: false,
+            maxBounds: L.latLng(bardinet).toBounds(40000), minZoom: 9
         });
 
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
         const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' }).addTo(map);
 
-        // 1. Cercle Limite (20km) - Masque visuel
-        L.circle(bardinet, { radius: maxRadius, color: 'white', weight: 2, fill: false, dashArray: '10, 10', opacity: 0.5 }).addTo(map);
+        L.circle(bardinet, { radius: maxRadius, color: 'white', weight: 1, fill: false, dashArray: '10, 10', opacity: 0.3 }).addTo(map);
 
-        // 2. Périmètres Seveso
-        L.circle(bardinet, { radius: 500, color: 'red', fillOpacity: 0.3 }).addTo(map);
-        L.circle(bardinet, { radius: 1000, color: 'blue', fillOpacity: 0.15 }).addTo(map);
-        L.circle(bardinet, { radius: 5000, color: 'orange', fill: false, weight: 3, dashArray: '5, 5' }).addTo(map);
-        L.marker(bardinet).addTo(map).bindPopup("<b>USINE BARDINET</b>");
-
-        // 3. Occupation du sol (WMS) - On ne peut pas filtrer le flux mais on centre dessus
+        // Occupation du sol
         L.tileLayer.wms('https://data.geopf.fr/wms-r/wms?', {
             layers: 'LANDCOVER.CLC18_FR',
             format: 'image/png', transparent: true, version: '1.3.0', opacity: 0.4
         }).addTo(map);
 
-        // 4. Filtrage des Structures Sociales (CSV)
+        // Cercles Seveso
+        L.circle(bardinet, { radius: 500, color: 'red', fillOpacity: 0.3 }).addTo(map);
+        L.circle(bardinet, { radius: 1000, color: 'blue', fillOpacity: 0.15 }).addTo(map);
+        L.circle(bardinet, { radius: 5000, color: 'orange', fill: false, weight: 3, dashArray: '5, 5' }).addTo(map);
+        L.marker(bardinet).addTo(map).bindPopup("<b>SITE BARDINET</b>");
+
+        // Social (Filtré 20km)
         fetch('met_lieux_inclusion_numerique.csv')
             .then(res => res.text())
             .then(csv => {
@@ -101,10 +131,9 @@
                             const lat = parseFloat(row.latitude);
                             const lng = parseFloat(row.longitude);
                             if (!isNaN(lat) && !isNaN(lng)) {
-                                const dist = map.distance(bardinet, [lat, lng]);
-                                if (dist <= maxRadius) { // FILTRE STRICT 20KM
+                                if (map.distance(bardinet, [lat, lng]) <= maxRadius) {
                                     L.circleMarker([lat, lng], {
-                                        radius: 6, fillColor: '#8b5cf6', color: 'white', weight: 1, fillOpacity: 0.9
+                                        radius: 5, fillColor: '#8b5cf6', color: 'white', weight: 1, fillOpacity: 0.9
                                     }).addTo(map).bindPopup(`<b>SOCIAL : ${row.nom}</b><br>${row.type_lieu}`);
                                 }
                             }
@@ -113,21 +142,16 @@
                 });
             });
 
-        // 5. Filtrage des autres Usines (GeoJSON)
+        // ICPE (Filtré 20km)
         fetch('data/icpe_gironde.geojson')
             .then(res => res.json())
             .then(data => {
                 L.geoJSON(data, {
-                    filter: (feature) => {
-                        const coords = feature.geometry.coordinates;
-                        const dist = map.distance(bardinet, [coords[1], coords[0]]);
-                        return dist <= maxRadius; // FILTRE STRICT 20KM
-                    },
+                    filter: (feature) => map.distance(bardinet, [feature.geometry.coordinates[1], feature.geometry.coordinates[0]]) <= maxRadius,
                     pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 4, fillColor: '#3b82f6', color: 'white', weight: 1, fillOpacity: 0.8 }),
                     onEachFeature: (f, l) => l.bindPopup(`Usine : ${f.properties.libelle || f.properties.nom}`)
                 }).addTo(map);
             });
-
     </script>
 </body>
 </html>
