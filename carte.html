@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carte Environnementale de France : Seveso, RNN & ENS</title>
+    <title>Atlas Environnemental National : Seveso, RNN & ENS</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -11,12 +11,12 @@
     <style>
         :root {
             --apple-bg: #f5f5f7;
-            --apple-glass: rgba(255, 255, 255, 0.85);
+            --apple-glass: rgba(255, 255, 255, 0.9);
             --apple-text: #1d1d1f;
-            --seveso-high: #450a0a;
-            --seveso-low: #b91c1c;
-            --rnn-color: #16a34a;
-            --ens-color: #3498db;
+            --seveso-high: #7f1d1d;
+            --seveso-low: #ef4444;
+            --rnn-color: #059669;
+            --ens-color: #2563eb;
         }
 
         body, html { 
@@ -29,67 +29,45 @@
 
         #map { height: 100vh; width: 100vw; }
 
-        /* UI Elements */
         .header-panel {
             position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
+            top: 20px; left: 50%; transform: translateX(-50%);
             background: var(--apple-glass);
             backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            padding: 15px 25px;
+            padding: 12px 25px;
             border-radius: 20px;
             z-index: 1000;
             box-shadow: 0 8px 32px rgba(0,0,0,0.1);
             text-align: center;
-            border: 1px solid rgba(255,255,255,0.3);
-            min-width: 300px;
+            border: 1px solid rgba(255,255,255,0.4);
+            min-width: 280px;
         }
 
-        h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
-        .subtitle { font-size: 11px; color: #86868b; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+        h1 { margin: 0; font-size: 16px; font-weight: 700; }
+        .subtitle { font-size: 10px; color: #86868b; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
 
         .legend {
-            position: absolute;
-            bottom: 30px;
-            right: 20px;
+            position: absolute; bottom: 30px; right: 20px;
             background: var(--apple-glass);
             backdrop-filter: blur(20px);
-            padding: 20px;
-            border-radius: 20px;
+            padding: 15px; border-radius: 18px;
             z-index: 1000;
             box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            font-size: 13px;
-            border: 1px solid rgba(255,255,255,0.3);
-            width: 240px;
+            font-size: 12px;
+            border: 1px solid rgba(255,255,255,0.4);
+            width: 220px;
         }
 
-        .legend-title { font-weight: 700; margin-bottom: 12px; font-size: 14px; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 8px; }
-        .legend-item { display: flex; align-items: center; margin-bottom: 8px; }
-        .box { width: 16px; height: 16px; border-radius: 4px; margin-right: 12px; flex-shrink: 0; }
-        .circle { width: 12px; height: 12px; border-radius: 50%; margin-right: 14px; flex-shrink: 0; border: 2px solid white; box-shadow: 0 0 0 1px rgba(0,0,0,0.2); }
+        .legend-title { font-weight: 700; margin-bottom: 10px; font-size: 13px; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 5px; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 6px; }
+        .box { width: 14px; height: 14px; border-radius: 3px; margin-right: 10px; }
+        .circle { width: 10px; height: 10px; border-radius: 50%; margin-right: 12px; border: 1.5px solid white; box-shadow: 0 0 0 1px rgba(0,0,0,0.1); }
 
-        .source-info {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            font-size: 10px;
-            color: #86868b;
-            z-index: 1000;
-            background: rgba(255,255,255,0.5);
-            padding: 2px 5px;
-            border-radius: 4px;
-        }
-
-        /* Custom Leaflet Control Layer Style */
-        .leaflet-control-layers {
-            border-radius: 15px !important;
-            border: none !important;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1) !important;
-            padding: 10px !important;
-            background: var(--apple-glass) !important;
-            backdrop-filter: blur(20px) !important;
+        .loading-info {
+            position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.7); color: white; padding: 5px 15px;
+            border-radius: 20px; font-size: 11px; z-index: 999;
+            display: none;
         }
     </style>
 </head>
@@ -97,121 +75,124 @@
 
     <div class="header-panel">
         <h1>Atlas Environnemental National</h1>
-        <div class="subtitle">France métropolitaine & Outre-mer</div>
+        <div class="subtitle">Seveso • Réserves • Espaces Naturels</div>
     </div>
+
+    <div id="loading" class="loading-info">Chargement des données WMS...</div>
 
     <div id="map"></div>
 
     <div class="legend">
-        <div class="legend-title">Légende des Couches</div>
+        <div class="legend-title">Légende</div>
         
         <div class="legend-item">
             <div class="circle" style="background: var(--seveso-high);"></div>
-            <span><b>Seveso</b> (Seuil Haut)</span>
+            <span><b>Seveso Seuil Haut</b></span>
         </div>
         <div class="legend-item">
             <div class="circle" style="background: var(--seveso-low);"></div>
-            <span><b>Seveso</b> (Seuil Bas)</span>
+            <span>Seveso Seuil Bas</span>
         </div>
         <div class="legend-item">
-            <div class="circle" style="background: #ef4444; width: 8px; height: 8px;"></div>
+            <div class="circle" style="background: #9ca3af;"></div>
             <span>Autres ICPE</span>
         </div>
         
-        <div style="margin: 12px 0; border-top: 1px solid rgba(0,0,0,0.05);"></div>
+        <div style="margin: 8px 0; border-top: 1px solid rgba(0,0,0,0.05);"></div>
         
         <div class="legend-item">
-            <div class="box" style="background: var(--rnn-color); opacity: 0.6; border: 1px solid var(--rnn-color);"></div>
+            <div class="box" style="background: var(--rnn-color); opacity: 0.5; border: 1px solid var(--rnn-color);"></div>
             <span>Réserves Naturelles (RNN)</span>
         </div>
         <div class="legend-item">
-            <div class="box" style="background: var(--ens-color); opacity: 0.6; border: 1px solid var(--ens-color);"></div>
+            <div class="box" style="background: var(--ens-color); opacity: 0.5; border: 1px solid var(--ens-color);"></div>
             <span>Espaces Naturels (ENS)</span>
         </div>
+        <p style="font-size: 9px; color: #888; margin-top: 10px;">Note : Zoomez pour afficher les détails.</p>
     </div>
 
-    <div class="source-info">
-        Sources : Géorisques (Ministère Transition Écologique), INPN (MNHN).
-    </div>
-
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        // Initialisation de la carte centrée sur la France
         const map = L.map('map', {
-            center: [46.603354, 1.888334],
+            center: [46.5, 2.5],
             zoom: 6,
             zoomControl: false
         });
 
-        // Ajout du contrôle de zoom en bas à gauche
         L.control.zoom({ position: 'bottomleft' }).addTo(map);
 
-        // Fonds de carte
-        const cartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+        const baseLayers = {
+            "Plan": L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(map),
+            "Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Esri'
+            })
+        };
+
+        // --- COUCHES WMS OPTIMISÉES ---
+
+        // Flux Géorisques / BRGM pour Seveso
+        const sevesoHaut = L.tileLayer.wms('https://mapsref.brgm.fr/wxs/georisques/seveso', {
+            layers: 'SEVESO_SH',
+            format: 'image/png',
+            transparent: true,
+            version: '1.3.0',
+            attribution: 'Géorisques/BRGM'
         }).addTo(map);
 
-        const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EBP, and the GIS User Community'
-        });
+        const sevesoBas = L.tileLayer.wms('https://mapsref.brgm.fr/wxs/georisques/seveso', {
+            layers: 'SEVESO_SB',
+            format: 'image/png',
+            transparent: true,
+            version: '1.3.0',
+            attribution: 'Géorisques/BRGM'
+        }).addTo(map);
 
-        // --- COUCHES WMS ---
-
-        // 1. ICPE Seveso (Géorisques)
-        const seveso = L.tileLayer.wms('https://www.georisques.gouv.fr/services', {
-            layers: 'ms:V_ETABLISSEMENT_SEVESO',
+        // Flux Géorisques Global pour ICPE
+        const icpe = L.tileLayer.wms('https://www.georisques.gouv.fr/services', {
+            layers: 'INSTALLATIONS_CLASSEES_SIMPLIFIE',
             format: 'image/png',
             transparent: true,
             version: '1.3.0',
             attribution: 'Géorisques'
-        }).addTo(map);
-
-        // 2. Toutes les ICPE (Régimes A, E, D)
-        const icpeAll = L.tileLayer.wms('https://www.georisques.gouv.fr/services', {
-            layers: 'ms:V_INSTALLATION_CLASSIE_HORS_S3IC',
-            format: 'image/png',
-            transparent: true,
-            version: '1.3.0',
-            attribution: 'Géorisques'
         });
 
-        // 3. RNN (INPN)
+        // Flux INPN pour RNN et ENS
         const rnn = L.tileLayer.wms('https://ws.carmencarto.fr/WMS/119/fxx_inpn', {
             layers: 'RNN',
             format: 'image/png',
             transparent: true,
             version: '1.3.0',
-            attribution: 'INPN/MNHN'
+            attribution: 'INPN'
         }).addTo(map);
 
-        // 4. ENS (INPN)
         const ens = L.tileLayer.wms('https://ws.carmencarto.fr/WMS/119/fxx_inpn', {
             layers: 'ENS',
             format: 'image/png',
             transparent: true,
             version: '1.3.0',
-            attribution: 'INPN/MNHN'
+            attribution: 'INPN'
         }).addTo(map);
 
-        // --- CONTRÔLE DES COUCHES ---
-        const baseMaps = {
-            "Plan Clair (CartoDB)": cartoLight,
-            "Satellite (Esri)": satellite
+        const overlays = {
+            "⚠️ Seveso Haut": sevesoHaut,
+            "⚠️ Seveso Bas": sevesoBas,
+            "Autres ICPE": icpe,
+            "<span style='color:green'>Réserves (RNN)</span>": rnn,
+            "<span style='color:blue'>Espaces (ENS)</span>": ens
         };
 
-        const overlayMaps = {
-            "<b>⚠️ Sites Seveso</b>": seveso,
-            "Autres ICPE": icpeAll,
-            "<span style='color: #16a34a;'><b>Réserves (RNN)</b></span>": rnn,
-            "<span style='color: #3498db;'><b>Espaces (ENS)</b></span>": ens
-        };
-
-        L.control.layers(baseMaps, overlayMaps, { collapsed: false, position: 'topright' }).addTo(map);
-
-        // Échelle
+        L.control.layers(baseLayers, overlays, { collapsed: false, position: 'topright' }).addTo(map);
         L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(map);
+
+        // Indicateur de chargement
+        [sevesoHaut, sevesoBas, rnn, ens].forEach(layer => {
+            layer.on('loading', () => document.getElementById('loading').style.display = 'block');
+            layer.on('load', () => document.getElementById('loading').style.display = 'none');
+            layer.on('tileerror', () => document.getElementById('loading').innerText = 'Erreur de chargement des données');
+        });
 
     </script>
 </body>
