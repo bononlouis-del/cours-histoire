@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bardinet : Analyse des 4 Périmètres Seveso</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; overflow: hidden; }
+        #map { height: 100vh; width: 100vw; }
+        .ui-header {
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+            background: rgba(255,255,255,0.9); padding: 10px 20px; border-radius: 15px;
+            z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.2); text-align: center;
+        }
+        .legend {
+            position: absolute; bottom: 30px; left: 20px;
+            background: white; padding: 15px; border-radius: 12px;
+            z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.1); font-size: 11px;
+            width: 250px;
+        }
+        .leg-item { display: flex; align-items: center; margin-bottom: 8px; }
+        .line { width: 20px; height: 3px; margin-right: 10px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="ui-header">
+        <h1 style="margin:0; font-size:16px;">Bardinet (Seveso) : Les 4 Niveaux de Danger</h1>
+        <div style="font-size:10px; color:#666;">Impact sur les Quartiers, l'Agriculture et l'Industrie</div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="legend">
+        <strong>Périmètres Réglementaires</strong>
+        <div class="leg-item"><div class="line" style="background:red;"></div><b>Zone Rouge (500m)</b> : Létalité immédiate</div>
+        <div class="leg-item"><div class="line" style="background:blue;"></div><b>Zone Bleue (1km)</b> : Létalité réduite</div>
+        <div class="leg-item"><div class="line" style="background:orange;"></div><b>Périmètre PPI (5km)</b> : Alerte & Secours</div>
+        <div class="leg-item"><div class="line" style="background:gray; border-top: 2px dashed gray; height:0;"></div><b>Zone Consultation (20km)</b> : Impact Eco</div>
+        
+        <hr style="border:0; border-top:1px solid #eee; margin:10px 0;">
+        <strong>Dans le périmètre :</strong>
+        <div class="leg-item"><div class="dot" style="background:#3b82f6;"></div>Autres usines ICPE (Gironde)</div>
+        <div style="font-style:italic; color:#555; margin-top:5px;">
+            Note : Utilisez le mode "Satellite" en haut à droite pour voir les maisons (riverains) et les champs.
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const bardinet = [44.9045, -0.6245];
+        const map = L.map('map', { center: bardinet, zoom: 13 });
+
+        // Fond Satellite par défaut pour voir les quartiers et champs
+        const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Esri Satellite'
+        }).addTo(map);
+
+        const plan = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: 'OSM'
+        });
+
+        // 1. Les 4 Cercles
+        L.circle(bardinet, { radius: 500, color: 'red', fill: true, fillOpacity: 0.2 }).addTo(map);
+        L.circle(bardinet, { radius: 1000, color: 'blue', fill: true, fillOpacity: 0.1 }).addTo(map);
+        L.circle(bardinet, { radius: 5000, color: 'orange', fill: false, weight: 3 }).addTo(map);
+        L.circle(bardinet, { radius: 20000, color: 'gray', fill: false, weight: 1, dashArray: '5, 10' }).addTo(map);
+
+        // 2. Marqueur Bardinet
+        L.marker(bardinet).addTo(map).bindPopup("<b>USINE BARDINET</b> (Blanquefort)");
+
+        // 3. Autres ICPE (Données locales de Gironde)
+        fetch('data/icpe_gironde.geojson')
+            .then(res => res.json())
+            .then(data => {
+                L.geoJSON(data, {
+                    pointToLayer: (feature, latlng) => {
+                        return L.circleMarker(latlng, {
+                            radius: 4,
+                            fillColor: '#3b82f6',
+                            color: 'white',
+                            weight: 1,
+                            fillOpacity: 0.8
+                        });
+                    },
+                    onEachFeature: (f, l) => l.bindPopup(`Usine : ${f.properties.libelle || f.properties.nom}`)
+                }).addTo(map);
+            });
+
+        // 4. Contrôle des couches
+        L.control.layers({ "Satellite": satellite, "Plan": plan }, null, { collapsed: false }).addTo(map);
+
+    </script>
+</body>
+</html>
