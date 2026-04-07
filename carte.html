@@ -3,134 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Atlas Environnemental National (Vue Large)</title>
+    <title>Atlas Environnemental National (Correction Finale)</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root {
-            --apple-bg: #f5f5f7;
-            --apple-glass: rgba(255, 255, 255, 0.9);
-            --apple-text: #1d1d1f;
-        }
-        body, html { margin: 0; padding: 0; height: 100%; font-family: -apple-system, sans-serif; background: var(--apple-bg); overflow: hidden; }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background: #f0f0f0; }
         #map { height: 100vh; width: 100vw; }
-        .header-panel {
-            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-            background: var(--apple-glass); backdrop-filter: blur(20px);
-            padding: 12px 25px; border-radius: 20px; z-index: 1000;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1); text-align: center; border: 1px solid rgba(255,255,255,0.4);
+        .ui-panel {
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+            background: white; padding: 10px 20px; border-radius: 25px; z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); text-align: center; border: 2px solid #333;
+        }
+        .status-box {
+            position: absolute; top: 70px; left: 15px; background: rgba(255,255,255,0.9);
+            padding: 10px; border-radius: 8px; font-size: 11px; z-index: 1000;
+            max-width: 250px; border: 1px solid #ccc;
         }
         .legend {
-            position: absolute; bottom: 30px; right: 20px;
-            background: var(--apple-glass); backdrop-filter: blur(20px);
-            padding: 15px; border-radius: 18px; z-index: 1000;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1); font-size: 11px; border: 1px solid rgba(255,255,255,0.4);
-            width: 200px;
+            position: absolute; bottom: 30px; right: 20px; background: white;
+            padding: 15px; border-radius: 12px; z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); font-size: 12px;
         }
-        .legend-item { display: flex; align-items: center; margin-bottom: 6px; }
-        .circle { width: 8px; height: 8px; border-radius: 50%; margin-right: 10px; border: 1.5px solid white; }
-        .box { width: 12px; height: 12px; border-radius: 3px; margin-right: 10px; }
-        #loading {
-            position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.7); color: white; padding: 5px 15px; border-radius: 20px; font-size: 11px; z-index: 999;
-            display: none;
-        }
+        .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
     </style>
 </head>
 <body>
 
-    <div class="header-panel">
+    <div class="ui-panel">
         <h1 style="margin:0; font-size:16px;">Atlas Environnemental National</h1>
-        <div style="font-size:10px; color:#86868b; text-transform:uppercase;">Visualisation ICPE & Seveso (Optimisée vue large)</div>
+        <div style="font-size:10px; color:#666;">Données en direct des serveurs d'État</div>
     </div>
 
-    <div id="loading">Chargement des données...</div>
+    <div class="status-box" id="status">
+        <strong>Diagnostic de connexion :</strong><br>
+        <div id="msg-seveso">📡 Seveso : En attente...</div>
+        <div id="msg-icpe">📡 ICPE : En attente...</div>
+        <div id="msg-ign">📡 IGN : En attente...</div>
+    </div>
 
     <div id="map"></div>
 
     <div class="legend">
-        <div style="font-weight:700; margin-bottom:10px;">Légende</div>
-        <div class="legend-item"><div class="circle" style="background:#7f1d1d;"></div><span><b>Seveso Seuil Haut</b></span></div>
-        <div class="legend-item"><div class="circle" style="background:#ef4444;"></div><span>Seveso Seuil Bas</span></div>
-        <div class="legend-item"><div class="circle" style="background:#3b82f6;"></div><span>Autres ICPE (Vue large)</span></div>
-        <div style="margin: 8px 0; border-top: 1px solid rgba(0,0,0,0.05);"></div>
-        <div class="legend-item"><div class="box" style="background:#059669; opacity:0.5;"></div><span>Sites Protégés (SIC)</span></div>
-        <div class="legend-item"><div class="box" style="background:#2563eb; opacity:0.5;"></div><span>Zones Spéciales (ZPS)</span></div>
+        <strong>Légende</strong><br>
+        <div style="margin-top:5px;"><span class="dot" style="background:#7f1d1d; border:1px solid white;"></span>Seveso</div>
+        <div><span class="dot" style="background:#3b82f6; border:1px solid white;"></span>Installations Classées (ICPE)</div>
+        <div><span class="dot" style="background:#059669; opacity:0.5;"></span>Zones Protégées</div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const map = L.map('map', { 
-            center: [46.5, 2.5], 
-            zoom: 6, 
-            zoomControl: false 
-        });
+        const map = L.map('map', { center: [46.5, 2.5], zoom: 6 });
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // --- TENTATIVE 1 : GEORISQUES DIRECT ---
+        const urlGeorisques = 'https://www.georisques.gouv.fr/services';
         
-        L.control.zoom({ position: 'bottomleft' }).addTo(map);
+        const layerSeveso = L.tileLayer.wms(urlGeorisques, {
+            layers: 'V_ETABLISSEMENT_SEVESO',
+            format: 'image/png',
+            transparent: true,
+            version: '1.3.0',
+            attribution: 'Géorisques'
+        }).addTo(map);
 
-        const baseLayers = {
-            "Plan": L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© OSM' }).addTo(map),
-            "Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Esri' })
-        };
-
-        // --- FLUX OPTIMISÉS POUR VUE LARGE ---
-
-        // 1. ICPE Simplifiées (Visible de loin)
-        const icpeSimple = L.tileLayer.wms('https://www.georisques.gouv.fr/services', {
+        const layerICPE = L.tileLayer.wms(urlGeorisques, {
             layers: 'INSTALLATIONS_CLASSEES_SIMPLIFIE',
             format: 'image/png',
             transparent: true,
             version: '1.3.0',
-            styles: 'ICPE_SIMPLIFIE_PE', // Style spécifique pour affichage par points de loin
+            styles: 'ICPE_SIMPLIFIE_PE',
             attribution: 'Géorisques'
         }).addTo(map);
 
-        // 2. Sites Seveso
-        const seveso = L.tileLayer.wms('https://www.georisques.gouv.fr/services', {
-            layers: 'ms:V_ETABLISSEMENT_SEVESO',
-            format: 'image/png',
-            transparent: true,
-            version: '1.3.0',
-            attribution: 'Géorisques'
-        }).addTo(map);
-
-        // 3. Zones IGN (Géoplateforme)
-        const zonesProt = L.tileLayer.wms('https://data.geopf.fr/wms-r/wms?', {
-            layers: 'PROTECTEDAREAS.SIC',
+        // --- TENTATIVE 2 : IGN GEOPLATEFORME ---
+        const urlIGN = 'https://data.geopf.fr/wms-r/wms?';
+        const layerZones = L.tileLayer.wms(urlIGN, {
+            layers: 'PROTECTEDAREAS.SIC,PROTECTEDAREAS.ZPS',
             format: 'image/png',
             transparent: true,
             version: '1.3.0',
             attribution: 'IGN'
         }).addTo(map);
 
-        const reserves = L.tileLayer.wms('https://data.geopf.fr/wms-r/wms?', {
-            layers: 'PROTECTEDAREAS.ZPS',
-            format: 'image/png',
-            transparent: true,
-            version: '1.3.0',
-            attribution: 'IGN'
-        }).addTo(map);
+        // Diagnostic visuel
+        function setStatus(id, msg, color) {
+            const el = document.getElementById(id);
+            el.innerText = msg;
+            el.style.color = color;
+        }
 
-        const overlays = {
-            "⚠️ ICPE Simplifiées (Vue large)": icpeSimple,
-            "⚠️ Sites Seveso": seveso,
-            "Zones Protégées (SIC)": zonesProt,
-            "Zones Spéciales (ZPS)": reserves
-        };
+        layerSeveso.on('loading', () => setStatus('msg-seveso', '⌛ Seveso : Chargement...', 'orange'));
+        layerSeveso.on('load', () => setStatus('msg-seveso', '✅ Seveso : OK', 'green'));
+        layerSeveso.on('tileerror', () => setStatus('msg-seveso', '❌ Seveso : Erreur Serveur', 'red'));
 
-        L.control.layers(baseLayers, overlays, { collapsed: false, position: 'topright' }).addTo(map);
-        
-        // Gestion du chargement
-        let loadingCount = 0;
-        [icpeSimple, seveso, zonesProt, reserves].forEach(layer => {
-            layer.on('loading', () => { 
-                loadingCount++; 
-                document.getElementById('loading').style.display = 'block'; 
-            });
-            layer.on('load', () => { 
-                loadingCount--; 
-                if(loadingCount <= 0) document.getElementById('loading').style.display = 'none'; 
-            });
-        });
+        layerICPE.on('loading', () => setStatus('msg-icpe', '⌛ ICPE : Chargement...', 'orange'));
+        layerICPE.on('load', () => setStatus('msg-icpe', '✅ ICPE : OK', 'green'));
+        layerICPE.on('tileerror', () => setStatus('msg-icpe', '❌ ICPE : Erreur Serveur', 'red'));
+
+        layerZones.on('loading', () => setStatus('msg-ign', '⌛ IGN : Chargement...', 'orange'));
+        layerZones.on('load', () => setStatus('msg-ign', '✅ IGN : OK', 'green'));
+        layerZones.on('tileerror', () => setStatus('msg-ign', '❌ IGN : Erreur Serveur', 'red'));
+
     </script>
 </body>
 </html>
